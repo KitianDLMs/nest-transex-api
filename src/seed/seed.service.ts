@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ProductsService } from './../products/products.service';
 import { initialData } from './data/seed-data';
 import { User } from '../auth/entities/user.entity';
+import { ObraService } from 'src/obras/obra.service';
 
 
 @Injectable()
@@ -11,6 +12,8 @@ export class SeedService {
 
   constructor(
     private readonly productsService: ProductsService,
+
+    private readonly obraService: ObraService,
 
     @InjectRepository( User )
     private readonly userRepository: Repository<User>
@@ -23,6 +26,8 @@ export class SeedService {
     const adminUser = await this.insertUsers();
 
     await this.insertNewProducts( adminUser );
+
+    await this.insertNewObras(adminUser);
 
     return 'SEED EXECUTED';
   }
@@ -72,5 +77,13 @@ export class SeedService {
     return true;
   }
 
+   private async insertNewObras(user: User) {
+    const obras = initialData.obras; // tu array de obras que compartiste
 
+    const insertPromises = obras.map(obra => this.obraService.create(obra, user));
+
+    await Promise.all(insertPromises);
+
+    return true;
+  }
 }

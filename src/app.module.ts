@@ -11,6 +11,7 @@ import { SeedModule } from './seed/seed.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
 import { MessagesWsModule } from './messages-ws/messages-ws.module';
+import { ObraModule } from './obras/obra.module';
 
 @Module({
   imports: [
@@ -23,17 +24,17 @@ import { MessagesWsModule } from './messages-ws/messages-ws.module';
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      autoLoadEntities: true,
-      synchronize: true, // ⚠️ cuidado en prod, mejor usa migraciones
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      autoLoadEntities: true,      
+      synchronize: true,
+      ssl: process.env.STAGE === 'prod' 
+        ? { rejectUnauthorized: false } 
+        : false,
     }),
 
 
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname,'..','public'), 
-    }),
+    // ServeStaticModule.forRoot({
+    //   rootPath: join(__dirname,'..','public'), 
+    // }),
 
     ProductsModule,
 
@@ -46,6 +47,8 @@ import { MessagesWsModule } from './messages-ws/messages-ws.module';
     AuthModule,
 
     MessagesWsModule,
+
+    ObraModule
 
   ],
 })

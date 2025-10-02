@@ -16,6 +16,15 @@ interface SeedProduct {
 type ValidSizes = 'XS'|'S'|'M'|'L'|'XL'|'XXL'|'XXXL';
 type ValidTypes = 'shirts'|'pants'|'hoodies'|'hats';
 
+interface SeedObra {
+    name: string;
+    location: string;
+    budget: number;
+    startDate: string;
+    endDate: string;
+    description: string;
+}
+
 interface SeedUser {
     email:    string;
     fullName: string;
@@ -27,6 +36,7 @@ interface SeedUser {
 interface SeedData {
     users: SeedUser[];
     products: SeedProduct[];
+    obras: SeedObra[];
 }
 
 
@@ -830,5 +840,39 @@ export const initialData: SeedData = {
             title: "Kids Corp Jacket",
             gender: 'kid'
         },
-    ]
+    ],
+    obras: [
+    {
+      name: "Edificio Central Plaza",
+      location: "Santiago, Chile",
+      budget: 2500000,
+      startDate: "2024-01-15",
+      endDate: "2025-06-30",
+      description: "Construcción de un edificio corporativo de 20 pisos en el centro de Santiago."
+    },
+    {
+      name: "Condominio Los Robles",
+      location: "Viña del Mar, Chile",
+      budget: 1200000,
+      startDate: "2024-05-01",
+      endDate: "2026-03-15",
+      description: "Proyecto habitacional con 8 torres de departamentos y áreas verdes."
+    },
+    {
+      name: "Puente Río Claro",
+      location: "Talca, Chile",
+      budget: 800000,
+      startDate: "2023-11-10",
+      endDate: "2025-01-20",
+      description: "Construcción de un puente vehicular sobre el río Claro para mejorar la conectividad."
+    },
+    {
+      name: "Hospital Regional del Sur",
+      location: "Puerto Montt, Chile",
+      budget: 5000000,
+      startDate: "2024-02-01",
+      endDate: "2027-08-01",
+      description: "Nuevo hospital regional con capacidad para 500 camas y equipamiento de última generación."
+    }
+  ]
 }
