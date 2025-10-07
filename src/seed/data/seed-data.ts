@@ -23,6 +23,9 @@ interface SeedObra {
     startDate: string;
     endDate: string;
     description: string;
+    estado: string;     
+    responsable: string;
+    progreso: number;   
 }
 
 interface SeedUser {
@@ -841,38 +844,61 @@ export const initialData: SeedData = {
             gender: 'kid'
         },
     ],
-    obras: [
+     obras: [
     {
-      name: "Edificio Central Plaza",
-      location: "Santiago, Chile",
+      name: 'Edificio Central Plaza',
+      location: 'Santiago, Chile',
       budget: 2500000,
-      startDate: "2024-01-15",
-      endDate: "2025-06-30",
-      description: "Construcción de un edificio corporativo de 20 pisos en el centro de Santiago."
+      startDate: '2024-01-15',
+      endDate: '2025-06-30',
+      description: 'Construcción de un edificio corporativo de 20 pisos en el centro de Santiago.',
+      estado: 'En curso',          // 👈 nuevo campo
+      responsable: 'Carlos Méndez', // 👈 nuevo campo
+      progreso: 65,                // 👈 nuevo campo (%)
     },
     {
-      name: "Condominio Los Robles",
-      location: "Viña del Mar, Chile",
-      budget: 1200000,
-      startDate: "2024-05-01",
-      endDate: "2026-03-15",
-      description: "Proyecto habitacional con 8 torres de departamentos y áreas verdes."
+      name: 'Conjunto Habitacional Los Robles',
+      location: 'Concepción, Chile',
+      budget: 1800000,
+      startDate: '2023-09-01',
+      endDate: '2025-03-15',
+      description: 'Proyecto de viviendas sociales de 150 unidades con áreas verdes y juegos infantiles.',
+      estado: 'En curso',
+      responsable: 'María Fernández',
+      progreso: 80,
     },
     {
-      name: "Puente Río Claro",
-      location: "Talca, Chile",
-      budget: 800000,
-      startDate: "2023-11-10",
-      endDate: "2025-01-20",
-      description: "Construcción de un puente vehicular sobre el río Claro para mejorar la conectividad."
+      name: 'Puente Río Claro',
+      location: 'Talca, Chile',
+      budget: 3200000,
+      startDate: '2022-05-10',
+      endDate: '2024-11-30',
+      description: 'Construcción de puente vehicular de 200 metros sobre el Río Claro.',
+      estado: 'Finalizada',
+      responsable: 'Rodrigo Salinas',
+      progreso: 100,
     },
     {
-      name: "Hospital Regional del Sur",
-      location: "Puerto Montt, Chile",
-      budget: 5000000,
-      startDate: "2024-02-01",
-      endDate: "2027-08-01",
-      description: "Nuevo hospital regional con capacidad para 500 camas y equipamiento de última generación."
-    }
-  ]
+      name: 'Hospital Regional de Antofagasta',
+      location: 'Antofagasta, Chile',
+      budget: 4200000,
+      startDate: '2023-02-20',
+      endDate: '2026-08-10',
+      description: 'Construcción de hospital regional con 400 camas y equipamiento de alta tecnología.',
+      estado: 'En curso',
+      responsable: 'Paula Rojas',
+      progreso: 45,
+    },
+    {
+      name: 'Centro Deportivo Los Andes',
+      location: 'Los Andes, Chile',
+      budget: 950000,
+      startDate: '2024-06-01',
+      endDate: '2025-12-20',
+      description: 'Edificación de centro deportivo con gimnasio, piscina olímpica y canchas de tenis.',
+      estado: 'Pendiente',
+      responsable: 'Javier Soto',
+      progreso: 10,
+    },
+  ],
 }
