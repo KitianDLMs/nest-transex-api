@@ -93,6 +93,11 @@ export class ObraService {
     };
   }
 
+  async deleteAllObras() {
+    const queryBuilder = this.obraRepository.createQueryBuilder('obra');
+    await queryBuilder.delete().where({}).execute();
+  }
+
   async update(id: string, updateObraDto: UpdateObraDto, user: User) {
     const { images, ...toUpdate } = updateObraDto;
 

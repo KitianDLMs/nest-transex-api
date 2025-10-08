@@ -25,6 +25,15 @@ export class Obra {
   @Column('text', { nullable: true })
   description: string;
 
+  @Column({ nullable: true })
+  estado?: string;
+
+  @Column({ nullable: true })
+  responsable?: string;
+
+  @Column({ type: 'int', default: 0 })
+  progreso?: number;
+
   @OneToMany(
     () => ObraImage,
     (obraImage) => obraImage.obra,
