@@ -42,8 +42,9 @@ export class Obra {
   images: ObraImage[];
 
   @ManyToOne(
-    () => User,
-    (user) => user.obras   // 👈 DEBE coincidir con User.obras
+  () => User,
+    (user) => user.obras,
+    { onDelete: 'CASCADE' } // 👈 clave
   )
   user: User;
 }
