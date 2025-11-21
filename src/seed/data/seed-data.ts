@@ -852,9 +852,9 @@ export const initialData: SeedData = {
       startDate: '2024-01-15',
       endDate: '2025-06-30',
       description: 'Construcción de un edificio corporativo de 20 pisos en el centro de Santiago.',
-      estado: 'En curso',          // 👈 nuevo campo
-      responsable: 'Carlos Méndez', // 👈 nuevo campo
-      progreso: 65,                // 👈 nuevo campo (%)
+      estado: 'En curso',         
+      responsable: 'Carlos Méndez',
+      progreso: 65,               
     },
     {
       name: 'Conjunto Habitacional Los Robles',

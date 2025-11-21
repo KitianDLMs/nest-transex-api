@@ -10,6 +10,6 @@ services:
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
-    container_name: teslodb
+    container_name: transexdb
     volumes:
       - ./postgres:/var/lib/postgresql/data

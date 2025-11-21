@@ -26,9 +26,12 @@ import { ObraModule } from './obras/obra.module';
       database: process.env.DB_NAME,
       autoLoadEntities: true,      
       synchronize: true,
-      ssl: process.env.STAGE === 'prod' 
-        ? { rejectUnauthorized: false } 
-        : false,
+      // ssl: process.env.STAGE === 'prod' 
+      //   ? { rejectUnauthorized: false } 
+      //   : false,
+      ssl: {
+        rejectUnauthorized: false,
+      },
     }),
 
 
@@ -48,7 +51,7 @@ import { ObraModule } from './obras/obra.module';
 
     MessagesWsModule,
 
-    ObraModule
+    ObraModule,
 
   ],
 })

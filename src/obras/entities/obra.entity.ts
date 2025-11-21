@@ -44,7 +44,7 @@ export class Obra {
   @ManyToOne(
   () => User,
     (user) => user.obras,
-    { onDelete: 'CASCADE' } // 👈 clave
+    { onDelete: 'CASCADE' }
   )
   user: User;
 }
