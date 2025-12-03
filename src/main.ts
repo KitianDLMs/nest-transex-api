@@ -15,13 +15,13 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
     })
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Teslo RESTFul API')
-    .setDescription('Teslo shop endpoints')
+    .setTitle('Transex RESTFul API')
+    .setDescription('Transex API endpoints')
     .setVersion('1.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);

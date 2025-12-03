@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Headers, SetMetadata } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Headers, SetMetadata, Put, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 
@@ -18,7 +18,26 @@ import { ValidRoles } from './interfaces';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('users')
+  @Auth( ValidRoles.admin )
+  getAllUsers() {
+    return this.authService.getAllUsers();
+  }
 
+  @Get('users/:id')
+  @Auth(ValidRoles.admin)
+  getUserById(@Param('id') id: string) {
+    return this.authService.getUserById(id);
+  }
+
+  @Put('users/:id')
+  @Auth( ValidRoles.admin )
+  updateUser(
+    @Param('id') id: string,
+    @Body() body: any
+  ) {
+    return this.authService.updateUser(id, body);
+  }
 
   @Post('register')
   createUser(@Body() createUserDto: CreateUserDto ) {
@@ -49,8 +68,6 @@ export class AuthController {
     @RawHeaders() rawHeaders: string[],
     @Headers() headers: IncomingHttpHeaders,
   ) {
-
-
     return {
       ok: true,
       message: 'Hola Mundo Private',
@@ -60,9 +77,6 @@ export class AuthController {
       headers
     }
   }
-
-
-  // @SetMetadata('roles', ['admin','super-user'])
 
   @Get('private2')
   @RoleProtected( ValidRoles.superUser, ValidRoles.admin )
@@ -76,7 +90,6 @@ export class AuthController {
       user
     }
   }
-
 
   @Get('private3')
   @Auth( ValidRoles.admin )

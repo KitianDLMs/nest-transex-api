@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,6 +20,25 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  async getUserById(id: string) {
+    const user = await this.userRepository.findOneBy({ id });
+
+    if (!user) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
+
+    return user;
+  }
+
+
+  async getAllUsers() {
+    return await this.userRepository.find();
+  }
+
+  async updateUser(id: string, data: any) {
+    await this.userRepository.update(id, data);
+    return this.userRepository.findOneBy({ id });
+  }
 
   async create( createUserDto: CreateUserDto) {
     
