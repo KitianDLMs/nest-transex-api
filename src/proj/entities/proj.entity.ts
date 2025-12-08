@@ -62,7 +62,7 @@ export class Proj {
   @Column({ type: 'varchar', length: 14, nullable: true })
   phone_num_4: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   setup_date: Date;
 
   @Column({ type: 'timestamp', nullable: true })

@@ -2,6 +2,13 @@ import { Type } from 'class-transformer';
 import { IsOptional, IsString, IsBoolean, IsNumber, IsDate } from 'class-validator';
 
 export class CreateImstDto {
+
+  @IsString()
+  cust_code?: string;
+
+  @IsString()
+  proj_code?: string;
+
   @IsOptional()
   @IsDate()
   @Type(() => Date)

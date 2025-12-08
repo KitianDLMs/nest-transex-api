@@ -36,7 +36,7 @@ export class UpdateOrdrDto {
 
   @IsOptional()
   @IsString()
-  sort_name?: string;
+  cust_sort_name?: string;
 
   @IsOptional()
   @IsString()

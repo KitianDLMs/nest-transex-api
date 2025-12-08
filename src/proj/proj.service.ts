@@ -11,6 +11,22 @@ export class ProjService {
     private readonly projRepo: Repository<Proj>,
   ) {}
 
+  async findByCustomer(cust_code: string) {
+    return this.projRepo.find({
+      where: { cust_code }
+    });
+  }
+
+
+  async getOptions() {
+  return this.projRepo
+      .createQueryBuilder('proj')
+      .select(['proj.proj_code', 'proj.proj_name'])
+      .orderBy('proj.proj_code', 'ASC')
+      .getMany();
+  }
+
+
   findAll() {
     return this.projRepo.find();
   }

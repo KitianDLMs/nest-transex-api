@@ -26,7 +26,7 @@ export class OrdrService {
   }
 
   update(order_code: string, updateOrdrDto: UpdateOrdrDto) {
-    return this.ordrRepository.update({order_code} , updateOrdrDto);
+    return this.ordrRepository.update({ order_code }, updateOrdrDto);
   }
 
   remove(order_code: string) {
@@ -40,11 +40,26 @@ export class OrdrService {
     }
   }
 
+  // ✔ Búsqueda por cliente aplicando TRIM
   findByCust(cust_code: string) {
+    const clean = cust_code.trim();
     return this.ordrRepository.find({
-      where: { cust_code: cust_code },
+      where: { cust_code: clean },
     });
   }
 
+  // ✔ Filtro por cliente y proyecto con TRIM en ambas columnas
+  async filter(cust?: string, proj?: string) {
+    const qb = this.ordrRepository.createQueryBuilder('o');
 
+    if (cust) {
+      qb.andWhere('TRIM(o.cust_code) = :cust', { cust: cust.trim() });
+    }
+
+    if (proj && proj.trim() !== '') {
+      qb.andWhere('TRIM(o.proj_code) = :proj', { proj: proj.trim() });
+    }
+
+    return qb.orderBy('o.order_date', 'DESC').getMany();
+  }
 }

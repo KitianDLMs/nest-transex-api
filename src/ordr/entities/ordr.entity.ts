@@ -23,8 +23,13 @@ export class Ordr {
   @Column({ type: 'text',  nullable: true })
   stat?: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  cust_code?: string;
+  @Column({
+  transformer: {
+      to: (value: string) => value?.trim(),
+      from: (value: string) => value?.trim(),
+    },
+  })
+  cust_code: string;
 
   @ManyToOne(() => Cust, cust => cust.orders, { nullable: true })
   @JoinColumn({ name: 'cust_code' })

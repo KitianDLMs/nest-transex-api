@@ -980,6 +980,8 @@ export const initialData: SeedData = {
     ],
     imst: [
     {
+      cust_code: 'C001',
+      proj_code: 'P001',
       item_code: 'H20-000001',
       descr: 'Hormigón H20 Normal',
       short_descr: 'H20',
@@ -1015,6 +1017,8 @@ export const initialData: SeedData = {
       u_version: '1'
     },
     {
+      cust_code: 'C002',
+      proj_code: 'P002',
       item_code: 'H25-000001',
       descr: 'Hormigón H25 Estructural',
       short_descr: 'H25',
@@ -1125,7 +1129,7 @@ export const initialData: SeedData = {
         cust_code: 'CUST001',
         proj_code: 'PROJ001',
         proj_name: 'Proyecto Ejemplo',
-        sort_name: 'PROYECTO EJEMPLO',
+        sort_name: 'EXAMP',
 
         ship_cust_code: null,
         ref_cust_code: null,

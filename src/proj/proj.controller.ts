@@ -15,6 +15,16 @@ import { CreateProjDto } from './dto/create-proj.dto';
 export class ProjController {
   constructor(private readonly projService: ProjService) {}
 
+  @Get('by-customer/:cust_code')  
+  findByCustomer(@Param('cust_code') cust_code: string) {
+    return this.projService.findByCustomer(cust_code);
+  }
+
+  @Get('options')
+  getOptions() {
+    return this.projService.getOptions();
+  }
+
   @Get()
   findAll() {
     return this.projService.findAll();
@@ -34,6 +44,7 @@ export class ProjController {
 
   @Post()
   create(@Body() dto: CreateProjDto) {
+    console.log('DTO recibido:', dto);
     return this.projService.create(dto);
   }
 

@@ -17,7 +17,7 @@ export class ImstController {
     return this.imstService.findAll();
   }
 
-  @Get(':item_code')
+  @Get('item/:item_code')
   findOne(@Param('item_code') item_code: string) {
     return this.imstService.findOne(item_code);
   }
@@ -31,4 +31,15 @@ export class ImstController {
   remove(@Param('item_code') item_code: string) {
     return this.imstService.remove(item_code);
   }
+
+  @Get('project/:proj_code')
+  findByProject(@Param('proj_code') proj_code: string) {
+    return this.imstService.findByProject(proj_code);
+  }
+
+  @Get('customer/:cust_code')
+  findByCustomer(@Param('cust_code') cust_code: string) {
+    return this.imstService.findByCustomer(cust_code);
+  }
+
 }

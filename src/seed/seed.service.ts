@@ -214,8 +214,8 @@ export class SeedService {
       const dto: CreateProjDto = {
         ...proj,
 
-        // Convierte todas las fechas a Date
-        setup_date: new Date(proj.setup_date),
+        // Convierte todas las fechas a Date        
+        // setup_date: proj.setup_date ? new Date(proj.setup_date) : new Date(),
         expir_date: proj.expir_date ? new Date(proj.expir_date) : null,
         cred_chng_date: proj.cred_chng_date ? new Date(proj.cred_chng_date) : null,
         cred_card_expir_date: proj.cred_card_expir_date ? new Date(proj.cred_card_expir_date) : null,

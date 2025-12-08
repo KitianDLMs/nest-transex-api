@@ -1,25 +1,35 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { OrdrService } from './ordr.service';
 import { CreateOrdrDto } from './dto/create-ordr.dto';
 import { UpdateOrdrDto } from './dto/update-ordr.dto';
+import { ProjService } from 'src/proj/proj.service';
 
 @Controller('ordr')
 export class OrdrController {
-  constructor(private readonly ordrService: OrdrService) {}
+  constructor(
+    private readonly ordrService: OrdrService,
+    private readonly projService: ProjService,
+  ) {}
 
   @Post()
   create(@Body() createOrdrDto: CreateOrdrDto) {
     return this.ordrService.create(createOrdrDto);
   }
 
-  @Get()
-  findAll() {
-    return this.ordrService.findAll();
+  @Get(':cust_code')
+  findByCust(@Param('cust_code') cust_code: string) {
+    return this.ordrService.findByCust(cust_code.trim());
   }
 
-  @Get('/:order_code')
-  findOne(@Param('order_code') order_code: string) {
-    return this.ordrService.findOne(order_code);
+  @Get()
+  filterOrders(
+    @Query('cust_code') cust_code?: string,
+    @Query('proj_code') proj_code?: string,
+  ) {
+    return this.ordrService.filter(
+      cust_code?.trim(),
+      proj_code?.trim(),
+    );
   }
 
   @Patch(':order_code')
@@ -30,15 +40,8 @@ export class OrdrController {
     return this.ordrService.update(order_code.trim(), updateOrdrDto);
   }
 
-
   @Delete('/:order_code')
   remove(@Param('order_code') order_code: string) {
-    return this.ordrService.remove(order_code);
+    return this.ordrService.remove(order_code.trim());
   }
-
-  @Get('by-cust/:cust_code')
-  findByCust(@Param('cust_code') cust_code: string) {
-    return this.ordrService.findByCust(cust_code);
-  }
-
 }
