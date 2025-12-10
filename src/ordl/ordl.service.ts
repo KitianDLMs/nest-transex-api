@@ -9,7 +9,7 @@ import { UpdateOrdlDto } from './dto/update-ordl.dto';
 export class OrdlService {
   constructor(
     @InjectRepository(Ordl)
-    private readonly ordlRepository: Repository<Ordl>,
+    private readonly ordlRepository: Repository<Ordl>,    
   ) {}
 
   create(createOrdlDto: CreateOrdlDto) {
@@ -23,6 +23,13 @@ export class OrdlService {
 
   findOne(order_date: Date, order_code: string, order_intrnl_line_num: number) {
     return this.ordlRepository.findOneBy({ order_date, order_code, order_intrnl_line_num });
+  }
+
+  findByOrder(order_date: Date, order_code: string) {
+    return this.ordlRepository.find({
+      where: { order_date, order_code },
+      order: { order_intrnl_line_num: 'ASC' }
+    });
   }
 
   async update(order_date: Date, order_code: string, order_intrnl_line_num: number, updateOrdlDto: UpdateOrdlDto) {

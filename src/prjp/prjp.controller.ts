@@ -12,6 +12,11 @@ export class PrjpController {
     return this.prjpService.create(dto);
   }
 
+  @Get('item/:item_code')
+  findByItem(@Param('item_code') item_code: string) {
+    return this.prjpService.findByItem(item_code);
+  }
+
   @Get()
   findAll() {
     return this.prjpService.findAll();

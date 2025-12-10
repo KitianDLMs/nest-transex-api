@@ -17,6 +17,12 @@ export class PrjpService {
     return this.prjpRepository.save(item);
   }
 
+  findByItem(item_code: string) {
+    return this.prjpRepository.find({
+      where: { prod_code: item_code },
+    });
+  }
+
   async findAll() {
     return this.prjpRepository.find();
   }

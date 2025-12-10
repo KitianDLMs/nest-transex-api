@@ -17,6 +17,15 @@ export class OrdlController {
     return this.ordlService.findAll();
   }
 
+  @Get('byOrder/:order_date/:order_code')
+  findByOrder(
+    @Param('order_date') order_date: string,
+    @Param('order_code') order_code: string,
+  ) {
+    return this.ordlService.findByOrder(new Date(order_date), order_code);
+  }
+
+
   @Get(':order_date/:order_code/:order_intrnl_line_num')
   findOne(
     @Param('order_date') order_date: string,
