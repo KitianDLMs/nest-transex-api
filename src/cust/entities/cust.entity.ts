@@ -6,7 +6,7 @@ import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
 @Entity('cust')
 export class Cust {
 
-  @PrimaryColumn()
+  @PrimaryColumn({ type: 'varchar', length: 9 })
   cust_code: string;
 
   @Column({ type: 'varchar', length: 40, nullable: true })

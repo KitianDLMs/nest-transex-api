@@ -53,27 +53,27 @@ export class SeedService {
     await this.deleteTables();
     const adminUser = await this.insertUsers();
     await this.insertNewCust();
-    await this.insertNewProj();
-    await this.insertnewOrdr();
+    // await this.insertNewProj();
+    // await this.insertnewOrdr();
     // await this.insertNewProducts(adminUser);
     // await this.insertNewObras(adminUser);
-    await this.insertNewOrdl();
-    await this.insertNewPrjp();
-    await this.insertNewSchl();
-    await this.insertNewTick();
-    await this.insertNewImst();
+    // await this.insertNewOrdl();
+    // await this.insertNewPrjp();
+    // await this.insertNewSchl();
+    // await this.insertNewTick();
+    // await this.insertNewImst();
     return 'SEED EXECUTED';
   }
 
   private async deleteTables() {
-    await this.tickService.deleteAllTick(); 
-    await this.schlService.deleteAllSchl();
-    await this.ordrService.deleteAllOrdr();
-    await this.ordlService.deleteAllOrdl();
-    await this.prjpService.deleteAllPrjp();
+    // await this.tickService.deleteAllTick(); 
+    // await this.schlService.deleteAllSchl();
+    // await this.ordrService.deleteAllOrdr();
+    // await this.ordlService.deleteAllOrdl();
+    // await this.prjpService.deleteAllPrjp();
     await this.productsService.deleteAllProducts();
-    await this.imstService.deleteAllImst(); 
-    await this.projService.deleteAllProj();
+    // await this.imstService.deleteAllImst(); 
+    // await this.projService.deleteAllProj();
     await this.custService.deleteAllCust();
 
     const queryBuilder = this.userRepository.createQueryBuilder();

@@ -910,7 +910,6 @@ interface SeedData {
 
 
 export const initialData: SeedData = {
-
     users: [
         {
             email: 'test1@google.com',

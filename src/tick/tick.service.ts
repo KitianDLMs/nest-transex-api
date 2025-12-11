@@ -5,16 +5,27 @@ import { CreateTickDto } from './dto/create-tick.dto';
 
 import { UpdateTickDto } from './dto/update-tick.dto';
 import { Tick } from './entities/tick.entity';
+// import { TickDoc } from './entities/tick-doc.entity';
 
 @Injectable()
 export class TickService {
   constructor(
     @InjectRepository(Tick)
     private readonly tickRepository: Repository<Tick>,
+    // @InjectRepository(TickDoc)
+    // private readonly tickDocRepository: Repository<TickDoc>
   ) {}
 
-  async create(dto: CreateTickDto) {
-    const tick = this.tickRepository.create(dto);
+  async create(dto: CreateTickDto, file?: Express.Multer.File) {
+    const tick = this.tickRepository.create({
+      ...dto,
+      // docs: file
+      //   ? [{
+      //       fileName: file.originalname,
+      //       filePath: file.path,
+      //     }]
+      //   : [],
+    });
     return this.tickRepository.save(tick);
   }
 

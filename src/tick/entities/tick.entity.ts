@@ -1,17 +1,17 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Ordr } from 'src/ordr/entities/ordr.entity';
 import {
   Entity,
   Column,
   PrimaryColumn,
   ManyToOne,
+  OneToMany,
 } from 'typeorm';
+import { TickDoc } from './tick-doc.entity';
 
 @Entity('tick')
 export class Tick {
 
-  // -----------------------------
-  // PRIMARY KEY (COMPOSITE)
-  // -----------------------------
   @Column({ type: 'timestamp' })
   order_date: Date;
 
@@ -20,10 +20,6 @@ export class Tick {
 
   @PrimaryColumn({ type: 'char', length: 8 })
   tkt_code: string;
-
-  // -----------------------------
-  // FIRST BLOCK OF COLUMNS
-  // -----------------------------
 
   @Column({ type: 'timestamp', nullable: true })
   tkt_date: Date | null;
@@ -388,4 +384,6 @@ export class Tick {
   @ManyToOne(() => Ordr, (order) => order.tickets, { onDelete: 'CASCADE' })
   order: Ordr;
 
+  // @OneToMany(() => TickDoc, doc => doc.tick, { cascade: true, eager: true })
+  // docs: TickDoc[];
 }

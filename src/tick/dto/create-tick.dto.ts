@@ -1,7 +1,7 @@
 import { IsOptional, IsString, IsNumber, IsBoolean, IsDateString } from 'class-validator';
 
 export class CreateTickDto {
-  // PRIMARY KEY
+
   @IsDateString()
   order_date: string;
 
@@ -11,7 +11,6 @@ export class CreateTickDto {
   @IsString()
   tkt_code: string;
 
-  // FIRST BLOCK
   @IsOptional() @IsDateString() tkt_date?: string;
   @IsOptional() @IsBoolean() apply_min_load_chrg_flag?: boolean;
   @IsOptional() @IsBoolean() apply_zone_chrg_flag?: boolean;

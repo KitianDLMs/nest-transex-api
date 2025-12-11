@@ -14,6 +14,22 @@ export class CreateImstDto {
   @Type(() => Date)
   update_date?: Date;
 
+  @IsOptional()
+  @IsString()
+  mix_type?: string;
+
+  @IsOptional()
+  @IsString()
+  rm_slump?: string;
+
+  @IsOptional()
+  @IsNumber()
+  price?: number;
+
+  @IsOptional()
+  @IsNumber()
+  matl_price?: number;
+
   @IsString()
   item_code: string;
 
