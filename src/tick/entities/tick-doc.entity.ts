@@ -1,18 +1,22 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
 import { Tick } from './tick.entity';
 
 @Entity({ name: 'tick_doc' })
 export class TickDoc {
 
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  @Column()
+  @Column({ name: 'filename' })
   fileName: string;
 
-  @Column()
+  @Column({ name: 'filepath' })
   filePath: string;
 
-//   @ManyToOne(() => Tick, tick => tick.docs, { onDelete: 'CASCADE' })
-//   tick: Tick;
+  @ManyToOne(() => Tick, tick => tick.docs, { onDelete: 'CASCADE' })
+  @JoinColumn([
+    { name: 'order_code', referencedColumnName: 'order_code' },
+    { name: 'tkt_code', referencedColumnName: 'tkt_code' }
+  ])
+  tick: Tick;
 }

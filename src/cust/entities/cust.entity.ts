@@ -1,7 +1,7 @@
 import { User } from 'src/auth/entities/user.entity';
 import { Ordr } from 'src/ordr/entities/ordr.entity';
 import { Proj } from 'src/proj/entities/proj.entity';
-import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, OneToMany, PrimaryColumn } from 'typeorm';
 
 @Entity('cust')
 export class Cust {
@@ -51,12 +51,14 @@ export class Cust {
   @Column({ type: 'timestamp', nullable: true })
   setup_date?: Date;
 
-  @OneToMany(() => Proj, proj => proj.customer)
-  projs: Proj[];
+  // @OneToMany(() => Proj, proj => proj.customer)
+  // projs: Proj[];
 
   @OneToMany(() => Ordr, ordr => ordr.customer)
+  @JoinColumn()
   orders: Ordr[];
 
   @OneToMany(() => User, (user) => user.cust)
+  @JoinColumn()
   users?: User[];
 }

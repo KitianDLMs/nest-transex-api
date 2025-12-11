@@ -22,6 +22,16 @@ export class CustController {
     return this.custService.findOne(code.trim());
   }
 
+  // 🔹 Nuevo endpoint: obtener órdenes de un cliente
+  @Get(':cust_code/orders')
+  getOrders(@Param('cust_code') cust_code: string) {
+    return this.custService.getOrdersByCustomer(cust_code);
+  }
+
+  @Get('proj/:project_code/orders')
+  getOrdersByProject(@Param('project_code') project_code: string) {
+    return this.custService.getOrdersByProject(project_code);
+  }
 
   @Patch(':cust_code')
   update(@Param('cust_code') cust_code: string, @Body() updateCustDto: UpdateCustDto) {

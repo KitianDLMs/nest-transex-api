@@ -15,10 +15,10 @@ export class Tick {
   @Column({ type: 'timestamp' })
   order_date: Date;
 
-  @PrimaryColumn({ type: 'char', length: 12 })
+  @PrimaryColumn({ type: 'char'})
   order_code: string;
 
-  @PrimaryColumn({ type: 'char', length: 8 })
+  @PrimaryColumn({ type: 'text' })
   tkt_code: string;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -39,25 +39,25 @@ export class Tick {
   @Column({ type: 'boolean', nullable: true })
   apply_min_haul_flag: boolean | null;
 
-  @Column({ type: 'char', length: 12, nullable: true })
+  @Column({ type: 'char', nullable: true })
   driv_empl_code: string | null;
 
-  @Column({ type: 'char', length: 8, nullable: true })
+  @Column({ type: 'char', nullable: true })
   hler_code: string | null;
 
-  @Column({ type: 'char', length: 10, nullable: true })
+  @Column({ type: 'char', nullable: true })
   lot_block: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   min_load_chrg_table_id: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   excess_unld_chrg_table_id: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   season_chrg_table_id: string | null;
 
-  @Column({ type: 'char', length: 24, nullable: true })
+  @Column({ type: 'char', nullable: true })
   po: string | null;
 
   @Column({ type: 'boolean', nullable: true })
@@ -66,28 +66,28 @@ export class Tick {
   @Column({ type: 'numeric', precision: 4, scale: 0, nullable: true })
   rm_water_added_on_job: number | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   ship_plant_code: string | null;
 
-  @Column({ type: 'char', length: 4, nullable: true })
+  @Column({ type: 'char', nullable: true })
   ship_plant_loc_code: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   scale_code: string | null;
 
-  @Column({ type: 'char', length: 10, nullable: true })
+  @Column({ type: 'char', nullable: true })
   truck_code: string | null;
 
-  @Column({ type: 'char', length: 2, nullable: true })
+  @Column({ type: 'char', nullable: true })
   truck_type: string | null;
 
-  @Column({ type: 'char', length: 2, nullable: true })
+  @Column({ type: 'char', nullable: true })
   delv_meth_code: string | null;
 
-  @Column({ type: 'char', length: 12, nullable: true })
+  @Column({ type: 'char', nullable: true })
   weigh_master_empl_code: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   remove_rsn_code: string | null;
 
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
@@ -102,7 +102,7 @@ export class Tick {
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
   cod_cash_recvd_amt: number | null;
 
-  @Column({ type: 'char', length: 40, nullable: true })
+  @Column({ type: 'char', nullable: true })
   cod_cash_recvd_text: string | null;
 
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
@@ -117,7 +117,7 @@ export class Tick {
   @Column({ type: 'boolean', nullable: true })
   invc_flag: boolean | null;
 
-  @Column({ type: 'char', length: 12, nullable: true })
+  @Column({ type: 'char', nullable: true })
   invc_code: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -129,7 +129,7 @@ export class Tick {
   @Column({ type: 'numeric', precision: 5, scale: 0, nullable: true })
   load_num: number | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   tax_code: string | null;
 
   @Column({ type: 'numeric', precision: 3, scale: 0, nullable: true })
@@ -141,10 +141,10 @@ export class Tick {
   @Column({ type: 'timestamp', nullable: true })
   sched_load_time: Date | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   susp_rsn_code: string | null;
 
-  @Column({ type: 'char', length: 20, nullable: true })
+  @Column({ type: 'char', nullable: true })
   susp_user_name: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -153,7 +153,7 @@ export class Tick {
   @Column({ type: 'timestamp', nullable: true })
   susp_cancel_date_time: Date | null;
 
-  @Column({ type: 'char', length: 20, nullable: true })
+  @Column({ type: 'char', nullable: true })
   susp_cancel_user_name: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -183,10 +183,10 @@ export class Tick {
   @Column({ type: 'timestamp', nullable: true })
   return_plant_time: Date | null;
 
-  @Column({ type: 'char', length: 2, nullable: true })
+  @Column({ type: 'char', nullable: true })
   stat_code: string | null;
 
-  @Column({ type: 'char', length: 20, nullable: true })
+  @Column({ type: 'char', nullable: true })
   user_name: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -219,10 +219,10 @@ export class Tick {
   @Column({ type: 'numeric', precision: 6, scale: 0, nullable: true })
   ticket_seq_num: number | null;
 
-  @Column({ type: 'char', length: 40, nullable: true })
+  @Column({ type: 'char', nullable: true })
   comments: string | null;
 
-  @Column({ type: 'char', length: 30, nullable: true })
+  @Column({ type: 'char', nullable: true })
   pump_code: string | null;
 
   @Column({ type: 'boolean', nullable: true })
@@ -231,7 +231,7 @@ export class Tick {
   @Column({ type: 'numeric', precision: 6, scale: 0, nullable: true })
   pump_time_min: number | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   zone_code: string | null;
 
   @Column({ type: 'numeric', precision: 5, scale: 0, nullable: true })
@@ -255,19 +255,19 @@ export class Tick {
   @Column({ type: 'numeric', precision: 9, scale: 2, nullable: true })
   plant_wait_time_min: number | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   min_haul_table_id: string | null;
 
   @Column({ type: 'numeric', precision: 5, scale: 0, nullable: true })
   haul_dist: number | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   haul_zone_code: string | null;
 
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
   haul_amt: number | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   rm_additive_code: string | null;
 
   @Column({ type: 'numeric', precision: 9, scale: 2, nullable: true })
@@ -285,19 +285,19 @@ export class Tick {
   @Column({ type: 'numeric', precision: 4, scale: 0, nullable: true })
   slump: number | null;
 
-  @Column({ type: 'char', length: 10, nullable: true })
+  @Column({ type: 'char', nullable: true })
   batcher_code: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   route_code: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   ticket_type_code: string | null;
 
   @Column({ type: 'boolean', nullable: true })
   manual_flag: boolean | null;
 
-  @Column({ type: 'char', length: 12, nullable: true })
+  @Column({ type: 'char', nullable: true })
   batch_code: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -306,10 +306,10 @@ export class Tick {
   @Column({ type: 'numeric', precision: 4, scale: 0, nullable: true })
   batch_num: number | null;
 
-  @Column({ type: 'char', length: 30, nullable: true })
+  @Column({ type: 'char', nullable: true })
   delv_contact_text: string | null;
 
-  @Column({ type: 'char', length: 40, nullable: true })
+  @Column({ type: 'char', nullable: true })
   delv_phone_text: string | null;
 
   @Column({ type: 'numeric', precision: 5, scale: 0, nullable: true })
@@ -318,7 +318,7 @@ export class Tick {
   @Column({ type: 'timestamp', nullable: true })
   ticket_printed_date_time: Date | null;
 
-  @Column({ type: 'char', length: 255, nullable: true })
+  @Column({ type: 'char', nullable: true })
   ticket_printed_user_name: string | null;
 
   @Column({ type: 'numeric', precision: 9, scale: 2, nullable: true })
@@ -327,7 +327,7 @@ export class Tick {
   @Column({ type: 'boolean', nullable: true })
   add_water_flag: boolean | null;
 
-  @Column({ type: 'char', length: 40, nullable: true })
+  @Column({ type: 'char', nullable: true })
   add_water_user_name: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -339,22 +339,22 @@ export class Tick {
   @Column({ type: 'boolean', nullable: true })
   void_flag: boolean | null;
 
-  @Column({ type: 'char', length: 20, nullable: true })
+  @Column({ type: 'char', nullable: true })
   void_user_name: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   void_date_time: Date | null;
 
-  @Column({ type: 'char', length: 255, nullable: true })
+  @Column({ type: 'char', nullable: true })
   void_comments: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   unload_code: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   load_size_code: string | null;
 
-  @Column({ type: 'char', length: 3, nullable: true })
+  @Column({ type: 'char', nullable: true })
   addtl_code: string | null;
 
   @Column({ type: 'numeric', precision: 9, scale: 2, nullable: true })
@@ -363,19 +363,19 @@ export class Tick {
   @Column({ type: 'boolean', nullable: true })
   ready_flag: boolean | null;
 
-  @Column({ type: 'char', length: 24, nullable: true })
+  @Column({ type: 'char', nullable: true })
   gps_latitude: string | null;
 
-  @Column({ type: 'char', length: 24, nullable: true })
+  @Column({ type: 'char', nullable: true })
   gps_longitude: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   gps_date_time: Date | null;
 
-  @Column({ type: 'char', length: 10, nullable: true })
+  @Column({ type: 'char', nullable: true })
   project_code: string | null;
 
-  @Column({ type: 'char', length: 10, nullable: true })
+  @Column({ type: 'char', nullable: true })
   operator_code: string | null;
 
   @Column({ type: 'boolean', nullable: true })
@@ -386,4 +386,7 @@ export class Tick {
 
   // @OneToMany(() => TickDoc, doc => doc.tick, { cascade: true, eager: true })
   // docs: TickDoc[];
+
+  @OneToMany(() => TickDoc, doc => doc.tick, { eager: true })
+  docs: TickDoc[];
 }

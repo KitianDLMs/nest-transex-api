@@ -50,10 +50,6 @@ export class Ordr {
   @Column({ type: 'varchar', length: 20, nullable: true })
   proj_code?: string;
 
-  @ManyToOne(() => Proj, proj => proj.projectDetails, { nullable: true })
-  @JoinColumn({ name: 'proj_code' })
-  project: Proj;
-
   @Column({ type: 'text',  nullable: true })
   zone_code?: string;
 

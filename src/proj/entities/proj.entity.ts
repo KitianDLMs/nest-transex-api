@@ -7,59 +7,56 @@ import { Entity, Column, PrimaryColumn, ManyToOne, OneToMany, JoinColumn } from 
 @Entity('proj')
 export class Proj {
 
-  @PrimaryColumn({ type: 'varchar', length: 20 })
+  @PrimaryColumn({ type: 'text' })
   proj_code: string;
 
   @Column({ type: 'varchar', nullable: true })
   cust_code?: string;
 
-  @ManyToOne(() => Cust, cust => cust.projs, { nullable: true })
-  @JoinColumn({ name: 'cust_code' })
-  customer: Cust;
+  // @ManyToOne(() => Cust, cust => cust.projs, { nullable: true })
+  // @JoinColumn({ name: 'cust_code' })
+  // customer: Cust;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   proj_name: string;
 
-  @OneToMany(() => Ordr, ordr => ordr.project)
-  orders: Ordr[];
-
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   sort_name: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({nullable: true })
   ship_cust_code: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   ref_cust_code: string;
 
-  @Column({ type: 'varchar', length: 24, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   po: string;
 
-  @Column({ type: 'varchar', length: 24, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cust_job_num: string;
 
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
   est_qty: number;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   est_qty_uom: string;
 
   @Column({ type: 'numeric', precision: 4, scale: 0, nullable: true })
   est_trvl: number;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   contct_name: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   phone_num_1: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   phone_num_2: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   phone_num_3: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   phone_num_4: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
@@ -68,124 +65,124 @@ export class Proj {
   @Column({ type: 'timestamp', nullable: true })
   expir_date: Date;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   invc_name: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   invc_addr_line_1: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   invc_addr_line_2: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   invc_city: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_state: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   invc_cntry: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_postcd: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   stmnt_name: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   stmnt_addr_line_1: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   stmnt_addr_line_2: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   stmnt_city: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   stmnt_state: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   stmnt_cntry: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   stmnt_postcd: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ship_name: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ship_addr_line_1: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ship_addr_line_2: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ship_city: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   ship_state: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ship_cntry: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   ship_postcd: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_sales_anl_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_sales_anl_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_sales_anl_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_sales_anl_code: string;
 
-  @Column({ type: 'varchar', length: 12, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_slsmn_empl_code: string;
 
-  @Column({ type: 'varchar', length: 12, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_slsmn_empl_code: string;
 
-  @Column({ type: 'varchar', length: 12, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_slsmn_empl_code: string;
 
-  @Column({ type: 'varchar', length: 12, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_slsmn_empl_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   tax_code: string;
 
   @Column({ type: 'numeric', precision: 1, scale: 0, nullable: true })
   taxble_code: number;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   non_tax_rsn_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_price_cat: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_price_cat: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_price_cat: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_price_cat: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_price_plant_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_price_plant_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_price_plant_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_price_plant_code: string;
 
   @Column({ type: 'numeric', precision: 7, scale: 3, nullable: true })
@@ -212,40 +209,40 @@ export class Proj {
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
   cd_trade_disc_amt: number;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_trade_disc_amt_uom: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_trade_disc_amt_uom: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_trade_disc_amt_uom: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_trade_disc_amt_uom: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_terms_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_terms_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_terms_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_terms_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_cart_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_cart_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_cart_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_cart_code: string;
 
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
@@ -284,16 +281,16 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   cd_apply_zone_chrg_flag: boolean;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_zone_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_zone_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_zone_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_zone_code: string;
 
   @Column({ type: 'boolean', nullable: true })
@@ -308,16 +305,16 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   cd_apply_min_load_chrg_flag: boolean;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_min_load_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_min_load_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_min_load_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_min_load_chrg_table_id: string;
 
   @Column({ type: 'boolean', nullable: true })
@@ -332,16 +329,16 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   cd_apply_excess_unld_chrg_flag: boolean;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_excess_unld_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_excess_unld_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_excess_unld_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_excess_unld_chrg_table_id: string;
 
   @Column({ type: 'boolean', nullable: true })
@@ -356,16 +353,16 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   cd_apply_season_chrg_flag: boolean;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_season_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_season_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_season_chrg_table_id: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_season_chrg_table_id: string;
 
   @Column({ type: 'boolean', nullable: true })
@@ -488,28 +485,28 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   cd_restrict_quoted_prod_flag: boolean;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_hler_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_hler_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_hler_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_hler_code: string;
 
   @Column({ type: 'boolean', nullable: true })
   allow_price_adjust_flag: boolean;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   map_page: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   proj_type: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   proj_stage: string;
 
   @Column({ type: 'boolean', nullable: true })
@@ -524,40 +521,40 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   cd_print_mix_wgts_flag: boolean;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_sched_plant_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_sched_plant_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_sched_plant_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_sched_plant_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_truck_type: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_truck_type: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_truck_type: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_truck_type: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   ca_delv_meth_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cb_delv_meth_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cc_delv_meth_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cd_delv_meth_code: string;
 
   @Column({ type: 'numeric', precision: 2, scale: 0, nullable: true })
@@ -572,7 +569,7 @@ export class Proj {
   @Column({ type: 'numeric', precision: 2, scale: 0, nullable: true })
   cd_track_order_color: number;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cred_code: string;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -584,43 +581,43 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   lot_block_flag: boolean;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   acct_cat_code: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cred_limtn_code: string;
 
   @Column({ type: 'numeric', precision: 7, scale: 3, nullable: true })
   prepay_pct: number;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cred_card_name: string;
 
-  @Column({ type: 'varchar', length: 30, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cred_card_num: string;
 
   @Column({ type: 'timestamp', nullable: true })
   cred_card_expir_date: Date;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   cred_card_resp_name: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_grouping_code: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_sub_grouping_code: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_det_sum_code: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_freq_code: string;
 
   @Column({ type: 'numeric', precision: 2, scale: 0, nullable: true })
   invc_copies: number;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   invc_single_mult_day_code: string;
 
   @Column({ type: 'boolean', nullable: true })
@@ -632,13 +629,13 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   invc_sep_by_prod_line_flag: boolean;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   metric_cstmry_code: string;
 
-  @Column({ type: 'varchar', length: 90, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   map_long: string;
 
-  @Column({ type: 'varchar', length: 90, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   map_lat: string;
 
   @Column({ type: 'numeric', precision: 4, scale: 0, nullable: true })
@@ -650,58 +647,58 @@ export class Proj {
   @Column({ type: 'boolean', nullable: true })
   quote_flag: boolean;
 
-  @Column({ type: 'varchar', length: 15, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   quote_code: string;
 
-  @Column({ type: 'varchar', length: 15, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   job_id: string;
 
   @Column({ type: 'timestamp', nullable: true })
   dataout_date: Date;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ nullable: true })
   sampling_lab_code: string;
 
   @Column({ type: 'numeric', precision: 4, scale: 0, nullable: true })
   sampling_interval: number;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   sampling_interval_uom: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   restrict_ordr_by_estqty_code: string;
 
   @Column({ type: 'numeric', precision: 6, scale: 2, nullable: true })
   max_load_size: number;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   mobileticket_code: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   trav_restrict_code: string;
 
-  @Column({ type: 'varchar', length: 36, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   guid: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   project_status: string;
 
-  @Column({ type: 'varchar', length: 15, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   edx_synch_status_code: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   inactive_code: string;
 
   @Column({ type: 'timestamp', nullable: true })
   inactive_date: Date;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   use_for_prod_line_code: string;
 
   @Column({ type: 'timestamp', nullable: true })
   update_date: Date;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   u_version: string;
 
   @Column({ type: 'text', nullable: true })

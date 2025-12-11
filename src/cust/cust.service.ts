@@ -4,12 +4,15 @@ import { Repository } from 'typeorm';
 import { Cust } from './entities/cust.entity';
 import { CreateCustDto } from './dto/create-cust.dto';
 import { UpdateCustDto } from './dto/update-cust.dto';
+import { Ordr } from 'src/ordr/entities/ordr.entity';
 
 @Injectable()
 export class CustService {
   constructor(
     @InjectRepository(Cust)
     private custRepository: Repository<Cust>,
+    @InjectRepository(Ordr)
+    private orderRepository: Repository<Ordr>,
   ) {}
 
   create(createCustDto: CreateCustDto) {
@@ -21,14 +24,21 @@ export class CustService {
     return this.custRepository.find();
   }
 
+  async getOrdersByProject(proj_code: string): Promise<Ordr[]> {
+    return this.orderRepository.find({
+      where: { proj_code },
+      order: { order_date: 'DESC' }
+    });
+  }
+
   async findOne(cust_code: string) {
     const cust = await this.custRepository.findOne({
       where: { cust_code: cust_code.trim() },
-      relations: [
-        'projs',
-        'orders',        
-        'orders.tickets'
-      ]
+      // relations: [
+      //   // 'projs',
+      //   // 'orders',        
+      //   // 'orders.tickets'
+      // ]
     });
 
     if (!cust) {
@@ -36,6 +46,14 @@ export class CustService {
     }
 
     return cust;
+  }
+
+  async getOrdersByCustomer(cust_code: string): Promise<Ordr[]> {
+    // Asumiendo que la entidad Order tiene un campo cust_code
+    return this.orderRepository.find({
+      where: { cust_code },
+      order: { order_date: 'DESC' } // opcional: orden por fecha
+    });
   }
 
   update(cust_code: string, updateCustDto: UpdateCustDto) {

@@ -1,12 +1,12 @@
 import { diskStorage } from 'multer';
-import { extname } from 'path';
 
 export const tickFileOptions = {
   storage: diskStorage({
     destination: './uploads/tick-docs',
     filename: (req, file, callback) => {
-      const uniqueName = `${Date.now()}-${file.originalname}`;
-      callback(null, uniqueName);
+      // nombre temporal (lo renombraremos después)
+      const tmpName = `${Date.now()}-${file.originalname}`;
+      callback(null, tmpName);
     },
   }),
   fileFilter: (req, file, callback) => {
