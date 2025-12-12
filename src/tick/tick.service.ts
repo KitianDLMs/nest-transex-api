@@ -34,7 +34,7 @@ export class TickService {
       // Renombrar archivo
       await fs.rename(tmpPath, finalPath);
 
-      const tickDoc = this.tickDocRepository.create({
+      const tickDoc = this.tickDocRepository.create({        
         tick: savedTick,
         fileName: newFileName,
         filePath: `uploads/tick-docs/${newFileName}`
