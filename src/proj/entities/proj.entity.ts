@@ -764,7 +764,7 @@ export class Proj {
   @OneToMany(() => Prjp, prjp => prjp.project)
   projectDetails: Prjp[];
 
-  @ManyToOne(() => User, (user) => user.projs, { nullable: true })
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  // @ManyToOne(() => User, (user) => user.projs, { nullable: true })
+  // @JoinColumn({ name: 'user_id' })
+  // user: User;
 }

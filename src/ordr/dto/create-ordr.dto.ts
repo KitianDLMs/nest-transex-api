@@ -18,12 +18,15 @@ export class CreateOrdrDto {
   taken_on_phone_line_num?: number;
   order_by_name?: string;
   order_by_phone_num?: string;
+
+  // ✅ Flags booleanos
   apply_min_load_chrg_flag?: boolean;
   apply_zone_chrg_flag?: boolean;
   apply_excess_unld_chrg_flag?: boolean;
   apply_season_chrg_flag?: boolean;
   apply_min_haul_pay_flag?: boolean;
   rm_print_mix_wgts_flag?: boolean;
+
   price_plant_code?: string;
   price_plant_loc_code?: string;
   comp_code?: string;
@@ -31,9 +34,11 @@ export class CreateOrdrDto {
   min_load_chrg_table_id?: string;
   excess_unld_chrg_table_id?: string;
   season_chrg_table_id?: string;
+
   min_load_sep_invc_flag?: boolean;
   excess_unld_sep_invc_flag?: boolean;
   season_sep_invc_flag?: boolean;
+
   sales_anl_code?: string;
   slsmn_empl_code?: string;
   taxble_code?: number;
@@ -54,7 +59,6 @@ export class CreateOrdrDto {
   invc_code?: string;
   setup_date?: Date;
   quote_code?: string;
-  // … más campos según la entity
   delv_addr?: string;
   instr?: string;
   user_defined?: string;
@@ -67,10 +71,91 @@ export class CreateOrdrDto {
   sundry_chrg_comb_meth_code?: string;
   sundry_chrg_override_rates?: string;
   order_msgs?: string;
-  apply_pump_unld_chrg_flag?: string;
+  apply_pump_unld_chrg_flag?: boolean;
   pump_unld_chrg_table_id?: string;
-  apply_pump_sundry_chrg_flags?: string;
+  apply_pump_sundry_chrg_flags?: boolean;
   pump_sundry_chrg_table_ids?: string;
   pump_sundry_chrg_over_rates?: string;
+
+  // ✅ Más flags booleanos
+  apply_cart_rate_hler_flag?: boolean;
+  apply_min_haul_flag?: boolean;
+  alt_scale_printer_flag?: boolean;
+  qc_approvl_flag?: boolean;
+  scale_use_order_flag?: boolean;
+  time_analysis_flag?: boolean;
+  map_updt_ordr_coord_flag?: boolean;
+  first_truck_polled_flag?: boolean;
+  time_offset_available?: boolean;
+  local_order_flag?: boolean;
+  third_party_override_cart_flag?: boolean;
+
+  // Otros campos
+  map_long?: string;
+  map_lat?: string;
+  map_radius?: number;
+  cart_code?: string;
+  cart_rate_amt?: number;
+  pay_cart_code?: string;
+  pay_cart_rate_amt?: number;
+  pmt_amt?: number;
+  pmt_auth_code?: string;
+  pmt_meth?: string;
+  pmt_check_num?: string;
+  pmt_acct_num?: string;
+  pmt_acct_bank_name?: string;
+  pmt_acct_check_num?: string;
+  pmt_acct_exp_date?: string;
+  pmt_acct_name?: string;
+  job_phase?: string;
+  job_code?: string;
+  phase_code?: string;
+  ship_to_plant_code?: string;
+  ccard_last_four?: string;
+  ccard_type_code?: string;
+  ccard_unique_id?: string;
+  ccard_approval_code?: string;
+  ccard_trans_id?: number;
+  ccard_paid_ind?: string;
+  ccard_trans_datetime?: Date;
+  ccard_order_amt?: number;
+  ccard_trans_amt?: number;
+  ccard_trans_voided?: string;
+  setup_time?: Date;
+  contact_code?: string;
+  air_trim_pct?: number;
+  third_party_cred_upd_stat_code?: string;
+  third_party_taxareaid?: string;
+  third_party_taxareaid_status?: string;
+  third_party_tax_conf_indicator?: number;
+  taxble_susp_rsn_code?: string;
+  taxble_susp_date_time?: Date;
+  taxble_susp_user_name?: string;
+  taxble_susp_cancel_date_time?: Date;
+  taxble_susp_cancel_user_name?: string;
+  approved_order_amt?: number;
+  sampling_lab_code?: string;
+  import_date?: Date;
+  ship_addr_line_num?: string;
+  ship_addr_line_name?: string;
+  ship_addr_city_code?: string;
+  nbrhood?: string;
+  pump_insp_req_code?: string;
+  pump_insp_empl_code?: string;
+  pump_insp_stat_code?: string;
+  fiscal_note_ss_natop_code?: string;
+  fiscal_note_ds_natop_code?: string;
+  guid?: string;
+  request_status?: string;
+  order_copy_type_code?: string;
+  state_job_code?: string;
+  tax_ref_postcd?: string;
+  notf_email_addr?: string;
+  email_addr_mobile?: string;
+  mobileticket_code?: string;
+  transaction_id?: string;
+  site_name?: string;
+  site_phone_num?: string;
   update_date?: Date;
+  u_version?: string;
 }

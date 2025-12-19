@@ -162,25 +162,25 @@ export class SeedService {
       await ordlRepository.save(initialData.ordl);
     }
 
-    private async insertnewOrdr() {
-      const ordrArray = initialData.ordr;
+    // private async insertnewOrdr() {
+    //   const ordrArray = initialData.ordr;
 
-      const insertPromises = ordrArray.map(ordr => 
-        this.ordrService.create({
-          ...ordr,
-          cust_code: ordr.cust_code?.substring(0, 1),
-          order_date: ordr.order_date ? new Date(ordr.order_date) : null,
-          susp_date_time: ordr.susp_date_time ? new Date(ordr.susp_date_time) : null,
-          susp_cancel_date_time: ordr.susp_cancel_date_time ? new Date(ordr.susp_cancel_date_time) : null,
-          setup_date: ordr.setup_date ? new Date(ordr.setup_date) : null,
-          update_date: ordr.update_date ? new Date(ordr.update_date) : null,
-        })
-      );
+    //   const insertPromises = ordrArray.map(ordr => 
+    //     this.ordrService.create({
+    //       ...ordr,
+    //       cust_code: ordr.cust_code?.substring(0, 1),
+    //       order_date: ordr.order_date ? new Date(ordr.order_date) : null,
+    //       susp_date_time: ordr.susp_date_time ? new Date(ordr.susp_date_time) : null,
+    //       susp_cancel_date_time: ordr.susp_cancel_date_time ? new Date(ordr.susp_cancel_date_time) : null,
+    //       setup_date: ordr.setup_date ? new Date(ordr.setup_date) : null,
+    //       update_date: ordr.update_date ? new Date(ordr.update_date) : null,
+    //     })
+    //   );
 
 
-      await Promise.all(insertPromises);
-      return true;
-    }
+    //   await Promise.all(insertPromises);
+    //   return true;
+    // }
 
 
     private async insertNewPrjp() {

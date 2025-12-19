@@ -6,11 +6,12 @@ import {
   PrimaryColumn,
   ManyToOne,
   OneToMany,
+  JoinColumn,
 } from 'typeorm';
-import { TickDoc } from './tick-doc.entity';
+// import { TickDoc } from './tick-doc.entity';
 
 @Entity('tick')
-export class Tick {
+export class Tick {  
 
   @Column({ type: 'timestamp' })
   order_date: Date;
@@ -213,6 +214,12 @@ export class Tick {
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
   amt: number | null;
 
+  @Column({ name: 'qty_water', type: 'numeric', default: 0 })
+  qtyWater: number;
+
+  @Column({ name: 'tax_amt', type: 'numeric', default: 0 })
+  taxAmt: number;
+
   @Column({ type: 'numeric', precision: 17, scale: 2, nullable: true })
   tax_amt: number | null;
 
@@ -382,11 +389,12 @@ export class Tick {
   flagged_for_review_flag: boolean | null;
 
   @ManyToOne(() => Ordr, (order) => order.tickets, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'order_code', referencedColumnName: 'order_code' })
   order: Ordr;
 
   // @OneToMany(() => TickDoc, doc => doc.tick, { cascade: true, eager: true })
   // docs: TickDoc[];
 
-  @OneToMany(() => TickDoc, doc => doc.tick, { eager: true })
-  docs: TickDoc[];
+  // @OneToMany(() => TickDoc, doc => doc.tick, { eager: true })
+  // docs: TickDoc[];
 }

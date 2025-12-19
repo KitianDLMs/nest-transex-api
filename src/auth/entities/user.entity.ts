@@ -35,8 +35,8 @@ export class User {
   @OneToMany(() => Obra, (obra) => obra.user)
   obras: Obra[];
 
-  @OneToMany(() => Proj, proj => proj.user)
-  projs: Proj[];
+  // @OneToMany(() => Proj, proj => proj.user)
+  // projs: Proj[];
 
   @OneToMany(() => Ordr, ordr => ordr.user)
   ordrs: Ordr[];

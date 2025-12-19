@@ -155,11 +155,11 @@ export class Imst {
   @Column({ type: 'char', length: 1, nullable: true })
   u_version?: string;
 
-  @Column({ type: 'char', length: 20, nullable: true })
-  mix_type?: string;
+  // @Column({ type: 'char', length: 20, nullable: true })
+  // mix_type?: string;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
-  matl_price?: number;
+  // @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  // matl_price?: number;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
   price?: number;

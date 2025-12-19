@@ -6,46 +6,46 @@ import { Column, Entity, JoinColumn, OneToMany, PrimaryColumn } from 'typeorm';
 @Entity('cust')
 export class Cust {
 
-  @PrimaryColumn({ type: 'varchar', length: 9 })
+  @PrimaryColumn({ type: 'varchar' })
   cust_code: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   name?: string;
 
-  @Column({ type: 'varchar', length: 8, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   sort_name?: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   addr_line_1?: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   addr_line_2?: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   addr_city?: string;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   addr_state?: string;
 
-  @Column({ type: 'varchar', length: 3, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   addr_cntry?: string;  // cuidado con valores >3 caracteres
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   addr_postcd?: string;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   contct_name?: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone_num_1?: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone_num_2?: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone_num_3?: string;
 
-  @Column({ type: 'varchar', length: 14, nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone_num_4?: string;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -55,10 +55,8 @@ export class Cust {
   // projs: Proj[];
 
   @OneToMany(() => Ordr, ordr => ordr.customer)
-  @JoinColumn()
   orders: Ordr[];
 
   @OneToMany(() => User, (user) => user.cust)
-  @JoinColumn()
   users?: User[];
 }
