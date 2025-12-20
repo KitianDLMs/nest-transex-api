@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateTickDto } from './dto/create-tick.dto';
@@ -45,19 +45,11 @@ export class TickService {
     return savedTick;
   }
 
-  async addDocument(
-    order_date: string,
-    order_code: string,
-    tkt_code: string,
-    file: Express.Multer.File,
-  ) {
-    // 1. Buscar el tick
-    const dateValue = new Date(order_date);
-
+  async addDocument(order_date: string, order_code: string, tkt_code: string, file: Express.Multer.File) {
+    const dateValue = new Date(order_date); // ← idem
     const tick = await this.tickRepository.findOne({
       where: { order_date: dateValue, order_code, tkt_code },
     });
-
     if (!tick) {
       throw new NotFoundException('Tick no encontrado');
     }
@@ -81,13 +73,89 @@ export class TickService {
     // return this.tickDocRepository.save(doc);
   }
 
+  async findByCustomer(custCode: string) {
+    return this.tickRepository
+      .createQueryBuilder('t')
+      .select([
+        't.order_date      AS order_date',
+        't.tkt_code        AS tkt_code',
+        't.order_code      AS order_code',
+
+        't.qty             AS qty',
+        't.amt             AS total_price',
+        't.tax_amt         AS tax_amount',
+      ])
+
+      .innerJoin(
+        'ordr',
+        'o',
+        'TRIM(o.order_code) = TRIM(t.order_code)'
+      )
+
+      .where('TRIM(o.cust_code) = TRIM(:custCode)', { custCode })
+      .orderBy('t.order_date', 'DESC')
+      // .limit(100)
+      .getRawMany();
+  }
+
+  async findByCustomerPaginated(
+    custCode: string,
+    page = 1,
+    limit = 20
+  ) {
+    const skip = (page - 1) * limit;
+
+    const baseQuery = this.tickRepository
+      .createQueryBuilder('t')
+      .innerJoin(
+        'ordr',
+        'o',
+        'TRIM(o.order_code) = TRIM(t.order_code)'
+      )
+      .where('TRIM(o.cust_code) = TRIM(:custCode)', { custCode });
+
+    // 📌 DATA
+    const data = await baseQuery
+      .select([
+        't.order_date AS order_date',
+        't.tkt_code AS tkt_code',
+        't.order_code AS order_code',
+        't.qty AS qty',
+        't.amt AS total_price',
+        't.tax_amt AS tax_amount',
+      ])
+      .orderBy('t.order_date', 'DESC') // 🔥 SIEMPRE columna real
+      .offset(skip)
+      .limit(limit)
+      .getRawMany();
+
+    // 📌 COUNT (sin select ni orderBy)
+    const total = await baseQuery.getCount();
+
+    return {
+      data,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+
 
   async findAll() {
     return this.tickRepository.find();
   }
 
   async findOne(order_date: string, order_code: string, tkt_code: string) {
+    if (!order_date) {
+      throw new BadRequestException('Debe enviar un order_date válido');
+    }
+
     const dateValue = new Date(order_date);
+    if (isNaN(dateValue.getTime())) {
+      throw new BadRequestException('order_date inválido');
+    }
 
     const tick = await this.tickRepository.findOne({
       where: { 
@@ -95,7 +163,7 @@ export class TickService {
         order_code,
         tkt_code
       },
-      relations: ['docs', 'order'],
+      relations: ['order'],
     });
 
     if (!tick) {
@@ -106,18 +174,13 @@ export class TickService {
   }
 
 
-  async update(order_date: string, order_code: string, tkt_code: string, dto: UpdateTickDto) {
 
+  async update(order_date: string, order_code: string, tkt_code: string, dto: UpdateTickDto) {
     const dateValue = new Date(order_date);
 
     await this.findOne(order_date, order_code, tkt_code);
-
     await this.tickRepository.update(
-      { 
-        order_date: dateValue, 
-        order_code, 
-        tkt_code 
-      },
+      { order_date: dateValue, order_code, tkt_code },
       dto,
     );
 

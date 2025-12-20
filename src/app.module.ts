@@ -19,10 +19,17 @@ import { ProjModule } from './proj/proj.module';
 import { ImstModule } from './imst/imst.module';
 import { OrdlModule } from './ordl/ordl.module';
 import { OrdrModule } from './ordr/ordr.module';
-import { PrjpModule } from './prjp/prjp.module';
+import { PrjpModule } from './prjp/prjp.module'
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+      serveStaticOptions: {
+        index: false, // ⚠️ importante
+      },
+    }),
     ConfigModule.forRoot(),
 
     TypeOrmModule.forRoot({

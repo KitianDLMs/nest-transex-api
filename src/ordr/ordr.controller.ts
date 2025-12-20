@@ -16,10 +16,31 @@ export class OrdrController {
     return this.ordrService.create(createOrdrDto);
   }
 
-  @Get(':cust_code')
-  findByCust(@Param('cust_code') cust_code: string) {
-    return this.ordrService.findByCust(cust_code.trim());
+  // @Get(':cust_code')
+  // findByCust(@Param('cust_code') cust_code: string) {
+  //   return this.ordrService.findByCust(cust_code.trim());
+  // }
+
+  @Get('by-customer/:cust_code')
+  findByCustomerPaginated(
+    @Param('cust_code') cust_code: string,
+    @Query('proj_code') proj_code?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.ordrService.findByCustomerPaginated(
+      cust_code.trim(),
+      proj_code?.trim(),
+      Number(page),
+      Number(limit),
+    );
   }
+
+  // @Get(':cust_code')
+  // findByCust(@Param('cust_code') cust_code: string) {
+  //   return this.ordrService.findByCust(cust_code.trim());
+  // } 
+
 
   @Get()
   filterOrders(

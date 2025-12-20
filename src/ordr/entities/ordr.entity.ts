@@ -245,8 +245,8 @@ export class Ordr {
   orderDetails: Ordl[];
 
   @OneToMany(() => Tick, tick => tick.order)
-  tickets: Tick[];
-  
+  ticks: Tick[];
+
   @ManyToOne(() => User, (user) => user.ordrs, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user: User;

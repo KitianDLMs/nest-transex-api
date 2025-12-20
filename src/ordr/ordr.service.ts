@@ -40,7 +40,6 @@ export class OrdrService {
     }
   }
 
-  // ✔ Búsqueda por cliente aplicando TRIM
   findByCust(cust_code: string) {
     const clean = cust_code.trim();
     return this.ordrRepository.find({
@@ -48,7 +47,35 @@ export class OrdrService {
     });
   }
 
-  // ✔ Filtro por cliente y proyecto con TRIM en ambas columnas
+  async findByCustomerPaginated(
+    custCode: string,
+    projCode?: string,
+    page = 1,
+    limit = 10,
+  ) {
+    const qb = this.ordrRepository
+      .createQueryBuilder('o')
+      .where('TRIM(o.cust_code) = :custCode', { custCode });
+
+    if (projCode) {
+      qb.andWhere('TRIM(o.proj_code) = :projCode', { projCode });
+    }
+
+    qb.orderBy('o.order_date', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+
+    return {
+      data,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   async filter(cust?: string, proj?: string) {
     const qb = this.ordrRepository.createQueryBuilder('o');
 

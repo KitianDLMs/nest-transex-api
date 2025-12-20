@@ -1,42 +1,52 @@
-import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
-import { CreateTickDto } from './dto/create-tick.dto';
-import { UpdateTickDto } from './dto/update-tick.dto';
+import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res, Query, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TickService } from './tick.service';
+import { CreateTickDto } from './dto/create-tick.dto';
+import { UpdateTickDto } from './dto/update-tick.dto';
 import { tickFileOptions } from './tick.multer.config';
+import { join, resolve } from 'path';
 import { existsSync } from 'fs';
-import { join } from 'path';
 import { Response } from 'express';
+import * as fs from 'fs';
 
 @Controller('tick')
 export class TickController {
-  constructor(private tickService: TickService) {}
+  constructor(private readonly tickService: TickService) {}
 
-  // Crear ticket con archivo opcional
   @Post('with-file')
   @UseInterceptors(FileInterceptor('file', tickFileOptions))
-  createWithFile(
+  async createWithFile(
     @Body() dto: CreateTickDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.tickService.create(dto, file);
   }
 
-  // Crear ticket SIN archivo
   @Post()
-  createWithoutFile(
-    @Body() dto: CreateTickDto,
+  async createWithoutFile(@Body() dto: CreateTickDto) {
+    return this.tickService.create(dto);
+  }
+
+  @Get('by-customer/:custCode')
+  async findByCustomer(
+    @Param('custCode') custCode: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
   ) {
-    return this.tickService.create(dto); // no enviamos archivo
+    return this.tickService.findByCustomerPaginated(
+      custCode,
+      Number(page),
+      Number(limit),
+    );
   }
 
   @Get()
-  findAll() {
+  async findAll() {
     return this.tickService.findAll();
   }
 
   @Get(':order_date/:order_code/:tkt_code')
-  findOne(
+  async findOne(
     @Param('order_date') order_date: string,
     @Param('order_code') order_code: string,
     @Param('tkt_code') tkt_code: string,
@@ -44,22 +54,8 @@ export class TickController {
     return this.tickService.findOne(order_date, order_code, tkt_code);
   }
 
-  @Get('file/:fileName')
-  downloadFile(
-    @Param('fileName') fileName: string,
-    @Res() res: Response
-  ) {
-    const filePath = join(process.cwd(), 'uploads/tick-docs', fileName);
-
-    if (!existsSync(filePath)) {
-      return res.status(404).json({ message: 'Archivo no encontrado' });
-    }
-
-    return res.download(filePath); 
-  }
-
   @Patch(':order_date/:order_code/:tkt_code')
-  update(
+  async update(
     @Param('order_date') order_date: string,
     @Param('order_code') order_code: string,
     @Param('tkt_code') tkt_code: string,
@@ -69,11 +65,29 @@ export class TickController {
   }
 
   @Delete(':order_date/:order_code/:tkt_code')
-  remove(
+  async remove(
     @Param('order_date') order_date: string,
     @Param('order_code') order_code: string,
     @Param('tkt_code') tkt_code: string,
   ) {
     return this.tickService.remove(order_date, order_code, tkt_code);
+  }
+
+  @Get('download/:tkt_code')
+  async downloadFile(
+    @Param('tkt_code') tkt_code: string,
+    @Res() res: Response
+  ) {
+    const projectRoot = process.cwd();
+    const filePath = join(projectRoot, 'uploads', `${tkt_code}.pdf`);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException(`Archivo ${tkt_code}.pdf no encontrado`);
+    }
+    return res.download(filePath, `${tkt_code}.pdf`, (err) => {
+      if (err) {
+        console.error('Error al descargar archivo:', err);
+        return res.status(500).json({ message: 'Error al descargar archivo' });
+      }
+    });
   }
 }

@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 import * as express from 'express';
+import { existsSync } from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,14 +14,14 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.enableCors();
 
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
-
   app.useGlobalPipes(
     new ValidationPipe({
       // whitelist: true,
       forbidNonWhitelisted: false,
     })
   );
+
+  console.log(existsSync(join(process.cwd(), 'uploads', 'archivo.pdf')));
 
   const config = new DocumentBuilder()
     .setTitle('Transex RESTFul API')
@@ -29,7 +30,6 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-
 
   await app.listen(process.env.PORT);
   logger.log(`App running on port ${ process.env.PORT }`);

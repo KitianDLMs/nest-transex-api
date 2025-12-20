@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsOptional } from 'class-validator';
 import { Ordr } from 'src/ordr/entities/ordr.entity';
 import {
   Entity,
@@ -13,7 +14,7 @@ import {
 @Entity('tick')
 export class Tick {  
 
-  @Column({ type: 'timestamp' })
+  @PrimaryColumn({ type: 'timestamp' })
   order_date: Date;
 
   @PrimaryColumn({ type: 'char'})
@@ -23,6 +24,8 @@ export class Tick {
   tkt_code: string;
 
   @Column({ type: 'timestamp', nullable: true })
+  @IsDateString()
+  @IsOptional()
   tkt_date: Date | null;
 
   @Column({ type: 'boolean', nullable: true })
@@ -388,10 +391,12 @@ export class Tick {
   @Column({ type: 'boolean', nullable: true })
   flagged_for_review_flag: boolean | null;
 
-  @ManyToOne(() => Ordr, (order) => order.tickets, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'order_code', referencedColumnName: 'order_code' })
+  @ManyToOne(() => Ordr)
+  @JoinColumn([
+    { name: 'order_code', referencedColumnName: 'order_code' }
+  ])
   order: Ordr;
-
+  
   // @OneToMany(() => TickDoc, doc => doc.tick, { cascade: true, eager: true })
   // docs: TickDoc[];
 
