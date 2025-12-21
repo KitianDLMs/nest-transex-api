@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { OrdlService } from './ordl.service';
 import { CreateOrdlDto } from './dto/create-ordl.dto';
 import { UpdateOrdlDto } from './dto/update-ordl.dto';
@@ -15,6 +15,36 @@ export class OrdlController {
   @Get()
   findAll() {
     return this.ordlService.findAll();
+  }
+
+  @Get('by-customer')
+  findByCustomer(
+    @Query('custCode') custCode: string,
+    @Query('projCode') projCode?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.ordlService.findLinesByCustomer(
+      custCode,
+      projCode,
+      Number(page),
+      Number(limit),
+    );
+  }
+
+  @Get('lines/byCustomer/:custCode')
+  findLinesByCustomer(
+    @Param('custCode') custCode: string,
+    @Query('projCode') projCode?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.ordlService.findLinesByCustomer(
+      custCode,
+      projCode,
+      Number(page),
+      Number(limit),
+    );
   }
 
   @Get('byOrder/:order_date/:order_code')

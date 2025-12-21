@@ -55,10 +55,14 @@ export class OrdrService {
   ) {
     const qb = this.ordrRepository
       .createQueryBuilder('o')
-      .where('TRIM(o.cust_code) = :custCode', { custCode });
+      .where('TRIM(o.cust_code) = :custCode', {
+        custCode: custCode.trim(),
+      });
 
-    if (projCode) {
-      qb.andWhere('TRIM(o.proj_code) = :projCode', { projCode });
+    if (projCode && projCode.trim() !== '') {
+      qb.andWhere('TRIM(o.proj_code) = :projCode', {
+        projCode: projCode.trim(),
+      });
     }
 
     qb.orderBy('o.order_date', 'DESC')

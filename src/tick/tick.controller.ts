@@ -8,6 +8,7 @@ import { join, resolve } from 'path';
 import { existsSync } from 'fs';
 import { Response } from 'express';
 import * as fs from 'fs';
+import * as archiver from 'archiver';
 
 @Controller('tick')
 export class TickController {
@@ -78,16 +79,47 @@ export class TickController {
     @Param('tkt_code') tkt_code: string,
     @Res() res: Response
   ) {
-    const projectRoot = process.cwd();
-    const filePath = join(projectRoot, 'uploads', `${tkt_code}.pdf`);
+    const filePath = join(
+      process.cwd(),
+      'uploads',
+      `${tkt_code}.pdf`
+    );
+
     if (!fs.existsSync(filePath)) {
       throw new NotFoundException(`Archivo ${tkt_code}.pdf no encontrado`);
     }
-    return res.download(filePath, `${tkt_code}.pdf`, (err) => {
-      if (err) {
-        console.error('Error al descargar archivo:', err);
-        return res.status(500).json({ message: 'Error al descargar archivo' });
-      }
+
+    return res.download(filePath, `${tkt_code}.pdf`);
+  }
+
+  @Post('download-zip')
+  async downloadZip(
+    @Body() tktCodes: string[],
+    @Res() res: Response
+  ) {
+    if (!tktCodes || tktCodes.length === 0) {
+      throw new HttpException('No hay tickets', HttpStatus.BAD_REQUEST);
+    }
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename=documentos_${Date.now()}.zip`,
     });
+
+    archive.pipe(res);
+
+    const basePath = join(process.cwd(), 'uploads');
+
+    for (const code of tktCodes) {
+      const filePath = join(basePath, `${code}.pdf`);
+
+      if (existsSync(filePath)) {
+        archive.file(filePath, { name: `${code}.pdf` });
+      }
+    }
+
+    await archive.finalize();
   }
 }

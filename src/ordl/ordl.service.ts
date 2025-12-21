@@ -51,4 +51,56 @@ export class OrdlService {
       await this.ordlRepository.remove(allOrdl);
     }
   }
+
+  async findLinesByCustomer(
+    custCode: string,
+    projCode?: string,
+    page = 1,
+    limit = 10,
+  ) {
+    const qb = this.ordlRepository
+      .createQueryBuilder('l')
+      .innerJoin(
+        'ordr',
+        'o',
+        `
+          TRIM(o.order_code) = TRIM(l.order_code)
+          AND o.order_date::date = l.order_date::date
+        `,
+      )
+      .where('TRIM(o.cust_code) = :custCode', {
+        custCode: custCode.trim(),
+      });
+
+    if (projCode && projCode.trim() !== '') {
+      qb.andWhere('TRIM(o.proj_code) = :projCode', {
+        projCode: projCode.trim(),
+      });
+    }
+
+    const total = await qb.getCount();
+
+    const data = await qb
+      .select([
+        'l.order_date AS order_date',
+        'l.order_code AS order_code',
+        'l.prod_code AS product_code',
+        'l.prod_descr AS concrete_desc',
+        'l.order_qty AS quantity',
+        'o.stat AS stat',
+      ])
+      .orderBy('l.order_date', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getRawMany();
+
+    return {
+      data,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
 }

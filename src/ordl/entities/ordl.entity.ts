@@ -1,7 +1,7 @@
 import { Ordr } from 'src/ordr/entities/ordr.entity';
 import { Column, Entity, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 
-@Entity('ORDL')
+@Entity('ordrl')
 export class Ordl {
   @PrimaryColumn()
   order_date: Date;

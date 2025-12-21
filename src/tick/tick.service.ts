@@ -11,9 +11,7 @@ import { Tick } from './entities/tick.entity';
 export class TickService {
   constructor(
     @InjectRepository(Tick)
-    private readonly tickRepository: Repository<Tick>,
-    // @InjectRepository(TickDoc)
-    // private readonly tickDocRepository: Repository<TickDoc>,
+    private readonly tickRepository: Repository<Tick>,    
   ) {}
 
   async create(dto: CreateTickDto, file?: Express.Multer.File) {
@@ -29,18 +27,9 @@ export class TickService {
       const newFileName = `${dto.tkt_code}.${ext}`;
 
       const tmpPath = file.path;
-      const finalPath = path.join(process.cwd(), 'uploads/tick-docs', newFileName);
-
-      // Renombrar archivo
+      const finalPath = path.join(process.cwd(), 'uploads', newFileName);
+      
       await fs.rename(tmpPath, finalPath);
-
-      // const tickDoc = this.tickDocRepository.create({        
-      //   tick: savedTick,
-      //   fileName: newFileName,
-      //   filePath: `uploads/tick-docs/${newFileName}`
-      // });
-
-      // await this.tickDocRepository.save(tickDoc);
     }
     return savedTick;
   }
@@ -53,24 +42,13 @@ export class TickService {
     if (!tick) {
       throw new NotFoundException('Tick no encontrado');
     }
-
-    // 2. Crear el nombre final del archivo
+    
     const ext = file.originalname.split('.').pop();
     const newFileName = `${tick.tkt_code}.${ext}`;
     const filePath = `uploads/${newFileName}`;
 
-    // 3. Guardar el archivo físicamente
     const fs = await import('fs');
     fs.renameSync(file.path, filePath);
-
-    // 4. Crear el registro TickDoc
-    // const doc = this.tickDocRepository.create({
-    //   fileName: newFileName,
-    //   filePath,
-    //   tick,
-    // });
-
-    // return this.tickDocRepository.save(doc);
   }
 
   async findByCustomer(custCode: string) {
@@ -94,7 +72,6 @@ export class TickService {
 
       .where('TRIM(o.cust_code) = TRIM(:custCode)', { custCode })
       .orderBy('t.order_date', 'DESC')
-      // .limit(100)
       .getRawMany();
   }
 
@@ -172,8 +149,6 @@ export class TickService {
 
     return tick;
   }
-
-
 
   async update(order_date: string, order_code: string, tkt_code: string, dto: UpdateTickDto) {
     const dateValue = new Date(order_date);
