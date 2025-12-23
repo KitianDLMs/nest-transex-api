@@ -9,10 +9,16 @@ import { existsSync } from 'fs';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as archiver from 'archiver';
+import { TickFilterDto } from './dto/tick-filter.dto';
 
 @Controller('tick')
 export class TickController {
   constructor(private readonly tickService: TickService) {}
+
+  @Get('search')
+  async search(@Query() filters: TickFilterDto) {
+    return this.tickService.search(filters);
+  }
 
   @Post('with-file')
   @UseInterceptors(FileInterceptor('file', tickFileOptions))
@@ -46,15 +52,7 @@ export class TickController {
     return this.tickService.findAll();
   }
 
-  @Get(':order_date/:order_code/:tkt_code')
-  async findOne(
-    @Param('order_date') order_date: string,
-    @Param('order_code') order_code: string,
-    @Param('tkt_code') tkt_code: string,
-  ) {
-    return this.tickService.findOne(order_date, order_code, tkt_code);
-  }
-
+  
   @Patch(':order_date/:order_code/:tkt_code')
   async update(
     @Param('order_date') order_date: string,
@@ -121,5 +119,14 @@ export class TickController {
     }
 
     await archive.finalize();
+  }
+
+  @Get(':order_date/:order_code/:tkt_code')
+  async findOne(
+    @Param('order_date') order_date: string,
+    @Param('order_code') order_code: string,
+    @Param('tkt_code') tkt_code: string,
+  ) {
+    return this.tickService.findOne(order_date, order_code, tkt_code);
   }
 }

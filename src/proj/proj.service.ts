@@ -27,8 +27,15 @@ export class ProjService {
   }
 
 
-  findAll() {
-    return this.projRepo.find();
+  async findAll() {
+    return this.projRepo
+      .createQueryBuilder('proj')
+      .select([
+        'proj.proj_code',
+        'proj.proj_name',
+        'proj.cust_code',
+      ])
+      .getRawMany();
   }
 
   async findOne(proj_code: string) {
@@ -58,10 +65,17 @@ export class ProjService {
     return { message: 'Proyecto eliminado' };
   }
 
-  findByCust(cust_code: string) {
-    return this.projRepo.find({
-      where: { cust_code: cust_code},
-    });
+  async findByCust(cust_code: string) {
+    return this.projRepo
+      .createQueryBuilder('proj')
+      .select([
+        'proj.proj_code',
+        'proj.proj_name',
+      ])
+      .where('TRIM(proj.cust_code) = :cust', {
+        cust: cust_code.trim(),
+      })
+      .getRawMany();
   }
 
   async deleteAllProj() {

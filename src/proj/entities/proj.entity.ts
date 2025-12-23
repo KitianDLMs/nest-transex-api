@@ -62,7 +62,7 @@ export class Proj {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   setup_date: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp without time zone', nullable: true })
   expir_date: Date;
 
   @Column({ type: 'varchar',  nullable: true })

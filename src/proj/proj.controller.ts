@@ -15,16 +15,6 @@ import { CreateProjDto } from './dto/create-proj.dto';
 export class ProjController {
   constructor(private readonly projService: ProjService) {}
 
-  @Get('by-customer/:cust_code')  
-  findByCustomer(@Param('cust_code') cust_code: string) {
-    return this.projService.findByCustomer(cust_code);
-  }
-
-  @Get('options')
-  getOptions() {
-    return this.projService.getOptions();
-  }
-
   @Get()
   findAll() {
     return this.projService.findAll();
@@ -35,31 +25,48 @@ export class ProjController {
     return this.projService.findByCust(cust_code);
   }
 
-  @Get('/:proj_code')
-  findOne(    
-    @Param('proj_code') proj_code: string,
-  ) {
-    return this.projService.findOne(proj_code);
+  @Get('ping')
+  ping() {
+    console.log('PING PROJ');
+    return 'pong';
   }
+
+
+  @Get('options')
+  getOptions() {
+    return this.projService.getOptions();
+  }  
+
+  // @Get('by-cust/:cust_code')
+  // findByCust(@Param('cust_code') cust_code: string) {
+  //   return this.projService.findByCust(cust_code);
+  // }
+
 
   @Post()
   create(@Body() dto: CreateProjDto) {
-    console.log('DTO recibido:', dto);
     return this.projService.create(dto);
   }
 
-  @Put('/:proj_code')
-  update(    
+  // =============================
+  // Recurso individual
+  // =============================
+
+  @Get('code/:proj_code')
+  findOne(@Param('proj_code') proj_code: string) {
+    return this.projService.findOne(proj_code);
+  }
+
+  @Put('code/:proj_code')
+  update(
     @Param('proj_code') proj_code: string,
     @Body() dto: Partial<Proj>,
   ) {
     return this.projService.update(proj_code, dto);
   }
 
-  @Delete('/:proj_code')
-  delete(      
-    @Param('proj_code') proj_code: string,
-  ) {
+  @Delete('code/:proj_code')
+  delete(@Param('proj_code') proj_code: string) {
     return this.projService.delete(proj_code);
   }
 }
