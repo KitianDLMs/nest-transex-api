@@ -28,7 +28,6 @@ export class TickService {
     if (!custCode) {
       throw new BadRequestException('custCode es obligatorio');
     }
-    
     const ticketsQb = this.tickRepository
       .createQueryBuilder('t')
       .innerJoin(

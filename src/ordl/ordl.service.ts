@@ -52,55 +52,74 @@ export class OrdlService {
     }
   }
 
-  async findLinesByCustomer(
-    custCode: string,
-    projCode?: string,
-    page = 1,
-    limit = 10,
-  ) {
-    const qb = this.ordlRepository
-      .createQueryBuilder('l')
-      .innerJoin(
-        'ordr',
-        'o',
-        `
-          TRIM(o.order_code) = TRIM(l.order_code)
-          AND o.order_date::date = l.order_date::date
-        `,
-      )
-      .where('TRIM(o.cust_code) = :custCode', {
-        custCode: custCode.trim(),
-      });
-
-    if (projCode && projCode.trim() !== '') {
-      qb.andWhere('TRIM(o.proj_code) = :projCode', {
-        projCode: projCode.trim(),
-      });
-    }
-
-    const total = await qb.getCount();
-
-    const data = await qb
-      .select([
-        'l.order_date AS order_date',
-        'l.order_code AS order_code',
-        'l.prod_code AS product_code',
-        'l.prod_descr AS concrete_desc',
-        'l.order_qty AS quantity',
-        'o.stat AS stat',
-      ])
-      .orderBy('l.order_date', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getRawMany();
-
-    return {
-      data,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
+async findLinesByCustomer(
+  custCode: string,
+  projCode?: string,
+  page = 1,
+  limit = 10,
+) {
+  if (!custCode?.trim()) {
+    return { data: [], page, limit, total: 0, totalPages: 0 };
   }
+
+  // -------------------------------
+  // 1️⃣ QUERY BASE (sin select)
+  // -------------------------------
+  const baseQB = this.ordlRepository
+    .createQueryBuilder('l')
+    .innerJoin(
+      'ordr',
+      'o',
+      `
+      TRIM(l.order_code) = TRIM(o.order_code)
+      AND l.order_date::date = o.order_date::date
+      `
+    )
+    .where('o.cust_code = :custCode', { custCode: custCode.trim() });
+
+  if (projCode?.trim()) {
+    baseQB.andWhere('o.proj_code = :projCode', {
+      projCode: projCode.trim(),
+    });
+  }
+
+  // -------------------------------
+  // 2️⃣ TOTAL DE REGISTROS
+  // -------------------------------
+  const total = await baseQB.clone().getCount();
+
+  if (total === 0) {
+    return { data: [], page, limit, total: 0, totalPages: 0 };
+  }
+
+  // -------------------------------
+  // 3️⃣ DATOS PAGINADOS
+  // -------------------------------
+  const data = await baseQB
+    .clone()
+    .select([
+      'l.order_date AS order_date',
+      'TRIM(l.order_code) AS order_code',
+      'TRIM(l.prod_code) AS product_code',
+      'l.prod_descr AS product_desc',
+      'l.order_qty AS quantity',
+      'o.stat AS status',
+      'o.start_time AS start_time',
+      'o.setup_time AS setup_time',
+    ])
+    .orderBy('l.order_date', 'DESC')
+    .addOrderBy('l.order_code', 'DESC')
+    .offset((page - 1) * limit) // 👈 usa offset
+    .limit(limit)               // 👈 y limit
+    .getRawMany();
+
+  return {
+    data,
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+  };
+}
 
 }
