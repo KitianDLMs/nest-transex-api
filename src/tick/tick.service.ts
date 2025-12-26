@@ -17,7 +17,7 @@ export class TickService {
   async search(filters: TickFilterDto) {
     const {
       custCode,
-      project,
+      projCode,
       docNumber,
       dateFrom,
       dateTo,
@@ -36,32 +36,38 @@ export class TickService {
         'TRIM(t.order_code::text) = TRIM(o.order_code::text)',
       )
       .leftJoin(
-    'proj',
-    'p',
-    'TRIM(o.proj_code) = TRIM(p.proj_code)',
-  )
-
+        'proj',
+        'p',
+        'TRIM(o.proj_code) = TRIM(p.proj_code)',
+      )
       .where('TRIM(o.cust_code::text) = :custCode', {
         custCode: custCode.trim(),
       });
       
-      if (project) {
-      ticketsQb.andWhere('TRIM(o.proj_code::text) = :project', {
-        project: project.trim(),
-      });
-    }
-    if (docNumber) {
-      ticketsQb.andWhere('t.tkt_code ILIKE :docNumber', {
-        docNumber: `%${docNumber.trim()}%`,
-      });
-    }
-    if (dateFrom) {
-      ticketsQb.andWhere('t.order_date >= :dateFrom', { dateFrom });
-    }
-    if (dateTo) {
-      ticketsQb.andWhere('t.order_date <= :dateTo', { dateTo });
-    }
-        ticketsQb
+      if (projCode?.trim()) {
+        ticketsQb.andWhere('TRIM(o.proj_code::text) = :projCode', {
+          projCode: projCode.trim(),
+        });
+      }
+
+      if (docNumber?.trim()) {
+        ticketsQb.andWhere('t.tkt_code ILIKE :docNumber', {
+          docNumber: `%${docNumber.trim()}%`,
+        });
+      }
+
+      if (dateFrom) {
+        ticketsQb.andWhere('t.order_date >= :dateFrom', {
+          dateFrom: new Date(dateFrom),
+        });
+      }
+
+      if (dateTo) {
+        ticketsQb.andWhere('t.order_date <= :dateTo', {
+          dateTo: new Date(dateTo),
+        });
+      }
+            ticketsQb
         .select([
         't.tkt_code AS tkt_code',
         't.order_date AS order_date',

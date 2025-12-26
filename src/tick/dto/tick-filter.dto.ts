@@ -8,8 +8,8 @@ export class TickFilterDto {
 
   @IsOptional()
   @IsString()
-  project?: string;
-
+  projCode?: string;
+  
   @IsOptional()
   @IsString()
   docType?: string;
