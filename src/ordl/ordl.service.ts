@@ -52,7 +52,7 @@ export class OrdlService {
     }
   }
 
-async findLinesByCustomer(
+  async findLinesByCustomer(
   custCode: string,
   projCode?: string,
   page = 1,
@@ -75,25 +75,32 @@ async findLinesByCustomer(
       AND l.order_date::date = o.order_date::date
       `
     )
-    .where('o.cust_code = :custCode', { custCode: custCode.trim() });
+    .where('TRIM(o.cust_code) = :custCode', {
+      custCode: custCode.trim(),
+    });
 
   if (projCode?.trim()) {
-    baseQB.andWhere('o.proj_code = :projCode', {
+    baseQB.andWhere('TRIM(o.proj_code) = :projCode', {
       projCode: projCode.trim(),
     });
   }
 
   // -------------------------------
-  // 2️⃣ TOTAL DE REGISTROS
+  // 2️⃣ COUNT REAL (NO getCount)
   // -------------------------------
-  const total = await baseQB.clone().getCount();
+  const totalResult = await baseQB
+    .clone()
+    .select('COUNT(*)', 'total')
+    .getRawOne();
+
+  const total = Number(totalResult?.total ?? 0);
 
   if (total === 0) {
     return { data: [], page, limit, total: 0, totalPages: 0 };
   }
 
   // -------------------------------
-  // 3️⃣ DATOS PAGINADOS
+  // 3️⃣ DATA PAGINADA
   // -------------------------------
   const data = await baseQB
     .clone()
@@ -103,14 +110,15 @@ async findLinesByCustomer(
       'TRIM(l.prod_code) AS product_code',
       'l.prod_descr AS product_desc',
       'l.order_qty AS quantity',
+      'TRIM(o.proj_code) AS proj_code',
       'o.stat AS status',
       'o.start_time AS start_time',
       'o.setup_time AS setup_time',
     ])
     .orderBy('l.order_date', 'DESC')
     .addOrderBy('l.order_code', 'DESC')
-    .offset((page - 1) * limit) // 👈 usa offset
-    .limit(limit)               // 👈 y limit
+    .offset((page - 1) * limit)
+    .limit(limit)
     .getRawMany();
 
   return {

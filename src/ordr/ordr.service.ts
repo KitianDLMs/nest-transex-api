@@ -7,10 +7,25 @@ import { UpdateOrdrDto } from './dto/update-ordr.dto';
 
 @Injectable()
 export class OrdrService {
+
   constructor(
     @InjectRepository(Ordr)
     private readonly ordrRepository: Repository<Ordr>,
   ) {}
+
+    async findProjectsByCustomer(custCode: string) {
+    return this.ordrRepository.query(
+      `
+      SELECT DISTINCT
+        TRIM(o.proj_code) AS proj_code
+      FROM ordr o
+      WHERE TRIM(o.cust_code) = $1
+        AND o.proj_code IS NOT NULL
+      ORDER BY proj_code
+      `,
+      [custCode.trim()]
+    );
+  }
 
   create(createOrdrDto: CreateOrdrDto) {
     const entity = this.ordrRepository.create(createOrdrDto);

@@ -53,6 +53,14 @@ export class OrdrController {
     );
   }
 
+  @Get('projects-by-customer')
+  getProjectsByCustomer(
+    @Query('custCode') custCode: string
+  ) {
+    return this.ordrService.findProjectsByCustomer(custCode);
+  }
+
+
   @Patch(':order_code')
   update(
     @Param('order_code') order_code: string,
