@@ -14,154 +14,164 @@ export class TickService {
     private readonly tickRepository: Repository<Tick>,    
   ) {}
 
-  async search(filters: TickFilterDto) {
-    const {
-      custCode,
-      projCode,
-      docNumber,
-      dateFrom,
-      dateTo,
-      page = 1,
-      limit = 20,
-    } = filters;
+async search(filters: TickFilterDto) {
+  const {
+    custCode,
+    projCode,
+    docNumber,
+    dateFrom,
+    dateTo,
+    page = 1,
+    limit = 10,
+  } = filters;
 
-    if (!custCode) {
-      throw new BadRequestException('custCode es obligatorio');
-    }
-    const ticketsQb = this.tickRepository
-      .createQueryBuilder('t')
-      .innerJoin(
-        'ordr',
-        'o',
-        'TRIM(t.order_code::text) = TRIM(o.order_code::text)',
+  if (!custCode) {
+    throw new BadRequestException('custCode es obligatorio');
+  }
+
+  const MAX_M3_PER_TICKET = 8;
+
+  /* =====================================================
+   * 0️⃣ BASE QUERY – SIN PAGINAR
+   * ===================================================== */
+  const ticketsRaw = await this.tickRepository
+    .createQueryBuilder('t')
+    .innerJoin(
+      'ordr',
+      'o',
+      'TRIM(t.order_code::text) = TRIM(o.order_code::text)',
+    )
+    .where('TRIM(o.cust_code::text) = :custCode', {
+      custCode: custCode.trim(),
+    })
+    .andWhere(
+      projCode?.trim()
+        ? 'TRIM(o.proj_code::text) = :projCode'
+        : '1=1',
+      { projCode: projCode?.trim() },
+    )
+    .andWhere(
+      docNumber?.trim()
+        ? 't.tkt_code ILIKE :docNumber'
+        : '1=1',
+      { docNumber: `%${docNumber?.trim()}%` },
+    )
+    .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
+    .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
+    .andWhere(`
+      EXISTS (
+        SELECT 1
+        FROM ordrl l
+        WHERE TRIM(l.order_code) = TRIM(o.order_code)
+          AND l.prod_descr IS NOT NULL
+          AND TRIM(l.prod_descr) <> ''
+          AND (
+            l.prod_descr ILIKE '%SERVICIO%'
+            OR l.order_qty > 0
+          )
       )
-      .leftJoin(
-        'proj',
-        'p',
-        'TRIM(o.proj_code) = TRIM(p.proj_code)',
-      )
-      .where('TRIM(o.cust_code::text) = :custCode', {
-        custCode: custCode.trim(),
-      });
-      
-      if (projCode?.trim()) {
-        ticketsQb.andWhere('TRIM(o.proj_code::text) = :projCode', {
-          projCode: projCode.trim(),
-        });
-      }
+    `)
+    .select([
+      'DISTINCT ON (t.tkt_code) t.tkt_code AS tkt_code',
+      't.order_date AS order_date',
+      'TRIM(o.order_code) AS order_code',
+      'TRIM(o.proj_code) AS proj_code',
+      'TRIM(o.delv_addr) AS proj_name',
+    ])
+    .orderBy('t.tkt_code', 'ASC')
+    .addOrderBy('t.order_date', 'ASC')
+    .getRawMany();
 
-      if (docNumber?.trim()) {
-        ticketsQb.andWhere('t.tkt_code ILIKE :docNumber', {
-          docNumber: `%${docNumber.trim()}%`,
-        });
-      }
+  if (!ticketsRaw.length) {
+    return { data: [], page, limit, total: 0, totalPages: 0 };
+  }
 
-      if (dateFrom) {
-        ticketsQb.andWhere('t.order_date >= :dateFrom', {
-          dateFrom: new Date(dateFrom),
-        });
-      }
+  /* =====================================================
+   * 1️⃣ LÍNEAS DE PEDIDO
+   * ===================================================== */
+  const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
 
-      if (dateTo) {
-        ticketsQb.andWhere('t.order_date <= :dateTo', {
-          dateTo: new Date(dateTo),
-        });
-      }
-            ticketsQb
-        .select([
-        't.tkt_code AS tkt_code',
-        't.order_date AS order_date',
-        'TRIM(o.order_code) AS order_code',
-        'TRIM(o.proj_code) AS proj_code',
-        "TRIM(SPLIT_PART(p.proj_name, '|', 2)) AS proj_name",
-      ]).groupBy(`
-        t.tkt_code,
-        t.order_date,
-        o.order_code,
-        o.proj_code,
-        p.proj_name
-      `)
-      .orderBy('t.order_date', 'DESC')
-      .offset((page - 1) * limit)
-      .limit(limit);
-      
-      const tickets = await ticketsQb.getRawMany();
+  const orderLines = await this.tickRepository.manager
+    .createQueryBuilder()
+    .select([
+      'TRIM(l.order_code) AS order_code',
+      'TRIM(l.prod_descr) AS prod_descr',
+      'SUM(l.order_qty) AS total_qty',
+      'MAX(l.price) AS unit_price',
+    ])
+    .from('ordrl', 'l')
+    .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
+    .groupBy('l.order_code, l.prod_descr')
+    .getRawMany();
 
-    const totalResult = await this.tickRepository
-      .createQueryBuilder('t')
-      .innerJoin(
-        'ordr',
-        'o',
-        'TRIM(t.order_code::text) = TRIM(o.order_code::text)',
-      )
-      .where('TRIM(o.cust_code::text) = :custCode', {
-        custCode: custCode.trim(),
-      })
-      .select('COUNT(DISTINCT t.tkt_code)', 'count')
-      .getRawOne();
+  const orderMap = new Map<string, any>();
 
-    const total = Number(totalResult?.count || 0);
+  for (const o of orderLines) {
+    orderMap.set(o.order_code, {
+      prod_descr: o.prod_descr,
+      total_qty: Number(o.total_qty),
+      unit_price: Number(o.unit_price),
+      isService: o.prod_descr.toUpperCase().includes('SERVICIO'),
+    });
+  }
 
-    const tktCodes = tickets.map(t => t.tkt_code);
-    const productMap: Record<string, any> = {};
+  /* =====================================================
+   * 2️⃣ ARMADO + FILTRO REAL
+   * ===================================================== */
+  const ticketCounter = new Map<string, number>();
 
-    if (tktCodes.length > 0) {
-      const rows = await this.tickRepository
-        .createQueryBuilder('t')
-        .innerJoin(
-          'ordr',
-          'o',
-          'TRIM(t.order_code::text) = TRIM(o.order_code::text)',
-        )
-        .innerJoin(
-          'ordrl',
-          'l',
-          'TRIM(o.order_code::text) = TRIM(l.order_code::text)',
-        )
-        .where('t.tkt_code IN (:...tktCodes)', { tktCodes })
-        .distinctOn(['t.tkt_code'])
-        .select([
-          't.tkt_code AS tkt_code',
-          'TRIM(l.prod_code) AS prod_code',
-          'TRIM(l.prod_descr) AS prod_descr',
-          'l.order_qty AS qty',
-          'l.price AS unit_price',
-          '(l.order_qty * l.price) AS total_price',
-        ])
-        .orderBy('t.tkt_code')
-        .addOrderBy('l.order_qty', 'DESC')
-        .getRawMany();
+  const cleanData = ticketsRaw
+    .map(t => {
+      const order = orderMap.get(t.order_code);
+      if (!order) return null;
 
-      rows.forEach(r => {
-        productMap[r.tkt_code] = {
-          prod_code: r.prod_code,
-          prod_descr: r.prod_descr,
-          qty: Number(r.qty),
-          unit_price: Number(r.unit_price),
-          total_price: Number(r.total_price),
+      /* 🟡 SERVICIO */
+      if (order.isService) {
+        if (!order.unit_price || order.unit_price <= 0) return null;
+
+        return {
+          ...t,
+          prod_descr: order.prod_descr,
+          total_qty: 1,
+          total_price: order.unit_price,
         };
-      });
-    }
+      }
 
-    const data = tickets.map(t => {
-      const product = productMap[t.tkt_code] || null;
+      /* 🟢 PRODUCTO */
+      const used = ticketCounter.get(t.order_code) ?? 0;
+      const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
+      const qty = Math.min(MAX_M3_PER_TICKET, remaining);
+
+      ticketCounter.set(t.order_code, used + 1);
+
+      if (qty <= 0) return null;
 
       return {
         ...t,
-        product,
-        total_qty: product ? product.qty : 0,
-        total_price: product ? product.total_price : 0,
+        prod_descr: order.prod_descr,
+        total_qty: qty,
+        total_price: qty * order.unit_price,
       };
-    });
+    })
+    .filter(Boolean);
 
-    return {
-      data,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
+  /* =====================================================
+   * 3️⃣ PAGINACIÓN FINAL (CORRECTA)
+   * ===================================================== */
+  const total = cleanData.length;
+  const totalPages = Math.ceil(total / limit);
+  const start = (page - 1) * limit;
+  const data = cleanData.slice(start, start + limit);
+
+  return {
+    data,
+    page,
+    limit,
+    total,
+    totalPages,
+  };
+}
+
 
   async create(dto: CreateTickDto, file?: Express.Multer.File) {
     const savedTick = await this.tickRepository.save(

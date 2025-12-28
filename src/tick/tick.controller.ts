@@ -3,7 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { TickService } from './tick.service';
 import { CreateTickDto } from './dto/create-tick.dto';
 import { UpdateTickDto } from './dto/update-tick.dto';
-import { tickFileOptions } from './tick.multer.config';
+// import { tickFileOptions } from './tick.multer.config';
 import { join, resolve } from 'path';
 import { existsSync } from 'fs';
 import { Response } from 'express';
@@ -20,14 +20,14 @@ export class TickController {
     return this.tickService.search(filters);
   }
 
-  @Post('with-file')
-  @UseInterceptors(FileInterceptor('file', tickFileOptions))
-  async createWithFile(
-    @Body() dto: CreateTickDto,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    return this.tickService.create(dto, file);
-  }
+  // @Post('with-file')
+  // @UseInterceptors(FileInterceptor('file', tickFileOptions))
+  // async createWithFile(
+  //   @Body() dto: CreateTickDto,
+  //   @UploadedFile() file?: Express.Multer.File,
+  // ) {
+  //   return this.tickService.create(dto, file);
+  // }
 
   @Post()
   async createWithoutFile(@Body() dto: CreateTickDto) {

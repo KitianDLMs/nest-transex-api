@@ -21,7 +21,7 @@ export class ProjController {
   }
 
   @Get('by-cust/:cust_code')
-  findByCust(@Param('cust_code') cust_code: string) {
+  findByCust(@Param('cust_code') cust_code: string) {    
     return this.projService.findByCust(cust_code);
   }
 
