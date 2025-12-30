@@ -70,21 +70,36 @@ export class ProjService {
   }
 
 async findByCust(cust_code: string) {
-  return this.projRepo.manager // usamos manager para hacer query directa
+  return this.projRepo.manager
     .createQueryBuilder()
     .select([
-      'TRIM(o.proj_code) AS proj_code',
-      'TRIM(o.delv_addr) AS proj_descr',
+      'proj_code',
+      'delv_addr AS proj_descr',
     ])
-    .from('ordr', 'o') // <-- tabla correcta
-    .where('TRIM(o.cust_code::text) = :cust_code', { cust_code: cust_code.trim() })
-    .andWhere('o.proj_code IS NOT NULL')
-    .groupBy('o.proj_code, o.delv_addr')
+    .from(subQuery => {
+      return subQuery
+        .select([
+          'TRIM(o.proj_code) AS proj_code',
+          'TRIM(o.delv_addr) AS delv_addr',
+          `
+          ROW_NUMBER() OVER (
+            PARTITION BY TRIM(o.proj_code)
+            ORDER BY COUNT(*) DESC
+          ) AS rn
+          `,
+        ])
+        .from('ordr', 'o')
+        .where('TRIM(o.cust_code::text) = :cust_code', {
+          cust_code: cust_code.trim(),
+        })
+        .andWhere('o.proj_code IS NOT NULL')
+        .andWhere('o.delv_addr IS NOT NULL')
+        .groupBy('TRIM(o.proj_code), TRIM(o.delv_addr)');
+    }, 'ranked')
+    .where('ranked.rn = 1')
     .orderBy('proj_code', 'ASC')
     .getRawMany();
 }
-
-
 
   async deleteAllProj() {
     const allProj = await this.projRepo.find();

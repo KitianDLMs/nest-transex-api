@@ -23,6 +23,9 @@ export class Tick {
   @PrimaryColumn({ type: 'text' })
   tkt_code: string;
 
+  @Column({ name: 'cust_code' })
+  cust_code: string;
+
   @Column({ type: 'timestamp', nullable: true })
   @IsDateString()
   @IsOptional()
