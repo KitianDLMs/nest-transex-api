@@ -39,7 +39,10 @@ export class TickService {
       .innerJoin(
         'ordr',
         'o',
-        'TRIM(t.order_code::text) = TRIM(o.order_code::text)',
+        `
+        TRIM(t.order_code::text) = TRIM(o.order_code::text)
+        AND DATE(o.order_date) = DATE(t.order_date)
+        `,
       )
       .where('TRIM(o.cust_code::text) = :custCode', {
         custCode: custCode.trim(),
@@ -63,6 +66,7 @@ export class TickService {
           SELECT 1
           FROM ordrl l
           WHERE TRIM(l.order_code) = TRIM(o.order_code)
+            AND DATE(l.order_date) = DATE(t.order_date)
             AND l.prod_descr IS NOT NULL
             AND TRIM(l.prod_descr) <> ''
             AND (
@@ -87,7 +91,7 @@ export class TickService {
     }
 
     /* =====================================================
-    * 1️⃣ LÍNEAS DE PEDIDO
+    * 1️⃣ LÍNEAS DE PEDIDO (FILTRADAS POR FECHA)
     * ===================================================== */
     const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
 
@@ -95,19 +99,25 @@ export class TickService {
       .createQueryBuilder()
       .select([
         'TRIM(l.order_code) AS order_code',
+        'DATE(l.order_date) AS order_date',
         'TRIM(l.prod_descr) AS prod_descr',
         'SUM(l.order_qty) AS total_qty',
         'MAX(l.price) AS unit_price',
       ])
       .from('ordrl', 'l')
       .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
-      .groupBy('l.order_code, l.prod_descr')
+      .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
       .getRawMany();
 
+    /* =====================================================
+    * 2️⃣ MAPA order_code + fecha
+    * ===================================================== */
     const orderMap = new Map<string, any>();
 
     for (const o of orderLines) {
-      orderMap.set(o.order_code, {
+      const key = `${o.order_code}_${o.order_date}`;
+
+      orderMap.set(key, {
         prod_descr: o.prod_descr,
         total_qty: Number(o.total_qty),
         unit_price: Number(o.unit_price),
@@ -116,20 +126,21 @@ export class TickService {
     }
 
     /* =====================================================
-    * 2️⃣ ARMADO + FILTRO REAL
+    * 3️⃣ ARMADO + FILTRO REAL
     * ===================================================== */
     const ticketCounter = new Map<string, number>();
 
     const cleanData = ticketsRaw
       .map(t => {
-        const order = orderMap.get(t.order_code);
+        const key = `${t.order_code}_${t.order_date}`;
+        const order = orderMap.get(key);
         if (!order) return null;
-        
-        const used = ticketCounter.get(t.order_code) ?? 0;
+
+        const used = ticketCounter.get(key) ?? 0;
         const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
         const qty = Math.min(MAX_M3_PER_TICKET, remaining);
 
-        ticketCounter.set(t.order_code, used + 1);
+        ticketCounter.set(key, used + 1);
 
         if (qty <= 0) return null;
 
@@ -143,11 +154,11 @@ export class TickService {
       .filter(Boolean);
 
     /* =====================================================
-    * 3️⃣ PAGINACIÓN FINAL (CORRECTA)
+    * 4️⃣ PAGINACIÓN FINAL
     * ===================================================== */
-      const total = cleanData.length;
-      
-      if (limit === 0) {
+    const total = cleanData.length;
+
+    if (limit === 0) {
       return {
         data: cleanData,
         page: 1,
