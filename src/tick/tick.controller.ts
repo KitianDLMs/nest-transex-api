@@ -90,6 +90,11 @@ export class TickController {
     return res.download(filePath, `${tkt_code}.pdf`);
   }
 
+  @Get('export/excel')
+  async exportExcel(@Query() filters: TickFilterDto) {
+    return this.tickService.searchForExcel(filters);
+  }
+
   @Post('download-zip')
   async downloadZip(
     @Body() tktCodes: string[],

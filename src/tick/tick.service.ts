@@ -15,176 +15,306 @@ export class TickService {
   ) {}
 
   async search(filters: TickFilterDto) {
-  const {
-    custCode,
-    projCode,
-    docNumber,
-    dateFrom,
-    dateTo,
-    page = 1,
-    limit = 10,
-  } = filters;
+    const {
+      custCode,
+      projCode,
+      docNumber,
+      dateFrom,
+      dateTo,
+      page = 1,
+      limit = 10,
+    } = filters;
 
-  if (!custCode?.trim()) {
-    throw new BadRequestException('custCode es obligatorio');
-  }
-
-  const MAX_M3_PER_TICKET = 8;
-
-  /* =====================================================
-   * 0️⃣ BASE QUERY – TICKETS REALES (SIN PAGINAR)
-   * ===================================================== */
-  const ticketsRaw = await this.tickRepository
-    .createQueryBuilder('t')
-    .innerJoin(
-      'ordr',
-      'o',
-      `
-        TRIM(t.order_code::text) = TRIM(o.order_code::text)
-        AND DATE(o.order_date) = DATE(t.order_date)
-      `,
-    )
-    .where('TRIM(o.cust_code::text) = :custCode', {
-      custCode: custCode.trim(),
-    })
-    .andWhere(
-      projCode?.trim()
-        ? 'TRIM(o.proj_code::text) = :projCode'
-        : '1=1',
-      { projCode: projCode?.trim() },
-    )
-    .andWhere(
-      docNumber?.trim()
-        ? 't.tkt_code ILIKE :docNumber'
-        : '1=1',
-      { docNumber: `%${docNumber?.trim()}%` },
-    )
-    .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
-    .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
-    .andWhere(`
-      EXISTS (
-        SELECT 1
-        FROM ordrl l
-        WHERE TRIM(l.order_code) = TRIM(o.order_code)
-          AND DATE(l.order_date) = DATE(t.order_date)
-          AND l.prod_descr IS NOT NULL
-          AND TRIM(l.prod_descr) <> ''
-          AND (
-            l.prod_descr ILIKE '%SERVICIO%'
-            OR l.order_qty > 0
-          )
-      )
-    `)
-    .select([
-      'DISTINCT ON (t.tkt_code) t.tkt_code AS tkt_code',
-      't.order_date AS order_date',
-      'TRIM(o.order_code) AS order_code',
-      'TRIM(o.proj_code) AS proj_code',
-      'TRIM(o.delv_addr) AS proj_name',
-    ])
-    .orderBy('t.tkt_code', 'ASC')
-    .addOrderBy('t.order_date', 'ASC')
-    .getRawMany();
-
-  if (!ticketsRaw.length) {
-    return { data: [], page, limit, total: 0, totalPages: 0 };
-  }
-
-  /* =====================================================
-   * 1️⃣ LÍNEAS DE PEDIDO (MISMO DÍA)
-   * ===================================================== */
-  const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
-
-  const orderLines = await this.tickRepository.manager
-    .createQueryBuilder()
-    .select([
-      'TRIM(l.order_code) AS order_code',
-      'DATE(l.order_date) AS order_date',
-      'TRIM(l.prod_descr) AS prod_descr',
-      'SUM(l.order_qty) AS total_qty',
-      'MAX(l.price) AS unit_price',
-    ])
-    .from('ordrl', 'l')
-    .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
-    .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
-    .getRawMany();
-
-  /* =====================================================
-   * 2️⃣ MAPA order_code + fecha
-   * ===================================================== */
-  const orderMap = new Map<string, any>();
-
-  for (const o of orderLines) {
-    const key = `${o.order_code}_${o.order_date}`;
-    orderMap.set(key, {
-      prod_descr: o.prod_descr,
-      total_qty: Number(o.total_qty),
-      unit_price: Number(o.unit_price),
-    });
-  }
-
-  /* =====================================================
-   * 3️⃣ ARMADO FINAL (SIN ELIMINAR TICKETS)
-   * ===================================================== */
-  const ticketCounter = new Map<string, number>();
-
-  const cleanData = ticketsRaw.map(t => {
-    const key = `${t.order_code}_${t.order_date}`;
-    const order = orderMap.get(key);
-
-    let qty = 0;
-    let total_price = 0;
-    let prod_descr = null;
-
-    if (order) {
-      const used = ticketCounter.get(key) ?? 0;
-      const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
-
-      qty = Math.max(
-        0,
-        Math.min(MAX_M3_PER_TICKET, remaining)
-      );
-
-      ticketCounter.set(key, used + 1);
-
-      prod_descr = order.prod_descr;
-      total_price = qty * order.unit_price;
+    if (!custCode?.trim()) {
+      throw new BadRequestException('custCode es obligatorio');
     }
 
-    return {
-      ...t,
-      prod_descr,
-      total_qty: qty,
-      total_price,
-    };
-  });
+    const MAX_M3_PER_TICKET = 8;
 
-  /* =====================================================
-   * 4️⃣ PAGINACIÓN FINAL
-   * ===================================================== */
-  const total = cleanData.length;
+    /* =====================================================
+    * 0️⃣ BASE QUERY – TICKETS REALES (SIN PAGINAR)
+    * ===================================================== */
+    const ticketsRaw = await this.tickRepository
+      .createQueryBuilder('t')
+      .innerJoin(
+        'ordr',
+        'o',
+        `
+          TRIM(t.order_code::text) = TRIM(o.order_code::text)
+          AND DATE(o.order_date) = DATE(t.order_date)
+        `,
+      )
+      .where('TRIM(o.cust_code::text) = :custCode', {
+        custCode: custCode.trim(),
+      })
+      .andWhere(
+        projCode?.trim()
+          ? 'TRIM(o.proj_code::text) = :projCode'
+          : '1=1',
+        { projCode: projCode?.trim() },
+      )
+      .andWhere(
+        docNumber?.trim()
+          ? 't.tkt_code ILIKE :docNumber'
+          : '1=1',
+        { docNumber: `%${docNumber?.trim()}%` },
+      )
+      .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
+      .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
+      .andWhere(`
+        EXISTS (
+          SELECT 1
+          FROM ordrl l
+          WHERE TRIM(l.order_code) = TRIM(o.order_code)
+            AND DATE(l.order_date) = DATE(t.order_date)
+            AND l.prod_descr IS NOT NULL
+            AND TRIM(l.prod_descr) <> ''
+            AND (
+              l.prod_descr ILIKE '%SERVICIO%'
+              OR l.order_qty > 0
+            )
+        )
+      `)
+      .select([
+        'DISTINCT ON (t.tkt_code) t.tkt_code AS tkt_code',
+        't.order_date AS order_date',
+        'TRIM(o.order_code) AS order_code',
+        'TRIM(o.proj_code) AS proj_code',
+        'TRIM(o.delv_addr) AS proj_name',
+      ])
+      .orderBy('t.tkt_code', 'ASC')
+      .addOrderBy('t.order_date', 'ASC')
+      .getRawMany();
 
-  if (limit === 0) {
+    if (!ticketsRaw.length) {
+      return { data: [], page, limit, total: 0, totalPages: 0 };
+    }
+
+    /* =====================================================
+    * 1️⃣ LÍNEAS DE PEDIDO (MISMO DÍA)
+    * ===================================================== */
+    const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
+
+    const orderLines = await this.tickRepository.manager
+      .createQueryBuilder()
+      .select([
+        'TRIM(l.order_code) AS order_code',
+        'DATE(l.order_date) AS order_date',
+        'TRIM(l.prod_descr) AS prod_descr',
+        'SUM(l.order_qty) AS total_qty',
+        'MAX(l.price) AS unit_price',
+      ])
+      .from('ordrl', 'l')
+      .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
+      .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
+      .getRawMany();
+
+    /* =====================================================
+    * 2️⃣ MAPA order_code + fecha
+    * ===================================================== */
+    const orderMap = new Map<string, any>();
+
+    for (const o of orderLines) {
+      const key = `${o.order_code}_${o.order_date}`;
+      orderMap.set(key, {
+        prod_descr: o.prod_descr,
+        total_qty: Number(o.total_qty),
+        unit_price: Number(o.unit_price),
+      });
+    }
+
+    /* =====================================================
+    * 3️⃣ ARMADO FINAL (FILTRANDO 0 m3)
+    * ===================================================== */
+    const ticketCounter = new Map<string, number>();
+
+    const cleanData = ticketsRaw
+      .map(t => {
+        const key = `${t.order_code}_${t.order_date}`;
+        const order = orderMap.get(key);
+
+        if (!order) return null;
+
+        const used = ticketCounter.get(key) ?? 0;
+        const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
+
+        if (remaining <= 0) return null;
+
+        const qty = Math.min(MAX_M3_PER_TICKET, remaining);
+
+        ticketCounter.set(key, used + 1);
+
+        return {
+          ...t,
+          prod_descr: order.prod_descr,
+          total_qty: qty,
+          total_price: qty * order.unit_price,
+        };
+      })
+      .filter(Boolean); // 🔥 elimina tickets sin volumen
+
+    /* =====================================================
+    * 4️⃣ PAGINACIÓN FINAL
+    * ===================================================== */
+    const total = cleanData.length;
+
+    if (limit === 0) {
+      return {
+        data: cleanData,
+        page: 1,
+        limit: total,
+        total,
+        totalPages: 1,
+      };
+    }
+
+    const totalPages = Math.ceil(total / limit);
+    const start = (page - 1) * limit;
+
     return {
-      data: cleanData,
-      page: 1,
-      limit: total,
+      data: cleanData.slice(start, start + limit),
+      page,
+      limit,
       total,
-      totalPages: 1,
+      totalPages,
     };
   }
 
-  const totalPages = Math.ceil(total / limit);
-  const start = (page - 1) * limit;
+  async searchForExcel(filters: TickFilterDto) {
+    const {
+      custCode,
+      projCode,
+      docNumber,
+      dateFrom,
+      dateTo,
+    } = filters;
 
-  return {
-    data: cleanData.slice(start, start + limit),
-    page,
-    limit,
-    total,
-    totalPages,
-  };
-}
+    if (!custCode?.trim()) {
+      throw new BadRequestException('custCode es obligatorio');
+    }
+
+    const MAX_M3_PER_TICKET = 8;
+
+    /* =====================================================
+    * 0️⃣ BASE QUERY – IGUAL AL SEARCH
+    * ===================================================== */
+    const ticketsRaw = await this.tickRepository
+      .createQueryBuilder('t')
+      .innerJoin(
+        'ordr',
+        'o',
+        `
+          TRIM(t.order_code::text) = TRIM(o.order_code::text)
+          AND DATE(o.order_date) = DATE(t.order_date)
+        `,
+      )
+      .where('TRIM(o.cust_code::text) = :custCode', {
+        custCode: custCode.trim(),
+      })
+      .andWhere(
+        projCode?.trim()
+          ? 'TRIM(o.proj_code::text) = :projCode'
+          : '1=1',
+        { projCode: projCode?.trim() },
+      )
+      .andWhere(
+        docNumber?.trim()
+          ? 't.tkt_code ILIKE :docNumber'
+          : '1=1',
+        { docNumber: `%${docNumber?.trim()}%` },
+      )
+      .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
+      .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
+      .andWhere(`
+        EXISTS (
+          SELECT 1
+          FROM ordrl l
+          WHERE TRIM(l.order_code) = TRIM(o.order_code)
+            AND DATE(l.order_date) = DATE(t.order_date)
+            AND l.prod_descr IS NOT NULL
+            AND TRIM(l.prod_descr) <> ''
+            AND (
+              l.prod_descr ILIKE '%SERVICIO%'
+              OR l.order_qty > 0
+            )
+        )
+      `)
+      .select([
+        'DISTINCT ON (t.tkt_code) t.tkt_code AS tkt_code',
+        't.order_date AS order_date',
+        'TRIM(o.order_code) AS order_code',
+        'TRIM(o.proj_code) AS proj_code',
+        'TRIM(o.delv_addr) AS proj_name',
+      ])
+      .orderBy('t.tkt_code', 'ASC')
+      .addOrderBy('t.order_date', 'ASC')
+      .getRawMany();
+
+    if (!ticketsRaw.length) return [];
+
+    /* =====================================================
+    * 1️⃣ LÍNEAS DE PEDIDO
+    * ===================================================== */
+    const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
+
+    const orderLines = await this.tickRepository.manager
+      .createQueryBuilder()
+      .select([
+        'TRIM(l.order_code) AS order_code',
+        'DATE(l.order_date) AS order_date',
+        'TRIM(l.prod_descr) AS prod_descr',
+        'SUM(l.order_qty) AS total_qty',
+        'MAX(l.price) AS unit_price',
+      ])
+      .from('ordrl', 'l')
+      .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
+      .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
+      .getRawMany();
+
+    /* =====================================================
+    * 2️⃣ MAPA order_code + fecha
+    * ===================================================== */
+    const orderMap = new Map<string, any>();
+
+    orderLines.forEach(o => {
+      orderMap.set(`${o.order_code}_${o.order_date}`, {
+        prod_descr: o.prod_descr,
+        total_qty: Number(o.total_qty),
+        unit_price: Number(o.unit_price),
+      });
+    });
+
+    /* =====================================================
+    * 3️⃣ ARMADO FINAL (SIN TICKETS 0 m3)
+    * ===================================================== */
+    const ticketCounter = new Map<string, number>();
+
+    return ticketsRaw
+      .map(t => {
+        const key = `${t.order_code}_${t.order_date}`;
+        const order = orderMap.get(key);
+
+        if (!order) return null;
+
+        const used = ticketCounter.get(key) ?? 0;
+        const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
+
+        // 🔥 SI NO HAY VOLUMEN, EL TICKET NO EXISTE
+        if (remaining <= 0) return null;
+
+        const qty = Math.min(MAX_M3_PER_TICKET, remaining);
+
+        ticketCounter.set(key, used + 1);
+
+        return {
+          ...t,
+          prod_descr: order.prod_descr,
+          total_qty: qty,
+          total_price: qty * order.unit_price,
+        };
+      })
+      .filter(Boolean); // 🔥 elimina tickets inválidos
+  }
 
   async create(dto: CreateTickDto, file?: Express.Multer.File) {
     const savedTick = await this.tickRepository.save(
