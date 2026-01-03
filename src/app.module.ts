@@ -27,7 +27,7 @@ import { PrjpModule } from './prjp/prjp.module'
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
       serveStaticOptions: {
-        index: false, // ⚠️ importante
+        index: false,
       },
     }),
     ConfigModule.forRoot(),

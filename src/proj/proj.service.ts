@@ -22,14 +22,13 @@ export class ProjService {
       .createQueryBuilder('o')
       .select([
         'TRIM(o.proj_code) AS proj_code',
-        'TRIM(o.delv_addr) AS proj_descr',
+        'TRIM(o.proj_name) AS proj_descr',
       ])
       .where('o.proj_code IS NOT NULL')
-      .groupBy('o.proj_code, o.delv_addr')
+      .groupBy('o.proj_code, o.proj_name')
       .orderBy('o.proj_code', 'ASC')
       .getRawMany();
   }
-
 
   async findAll() {
     return this.projRepo

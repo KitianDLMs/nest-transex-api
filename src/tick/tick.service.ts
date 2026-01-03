@@ -42,23 +42,11 @@ export class TickService {
         `
           TRIM(t.order_code::text) = TRIM(o.order_code::text)
           AND DATE(o.order_date) = DATE(t.order_date)
-        `,
+        `
       )
-      .where('TRIM(o.cust_code::text) = :custCode', {
-        custCode: custCode.trim(),
-      })
-      .andWhere(
-        projCode?.trim()
-          ? 'TRIM(o.proj_code::text) = :projCode'
-          : '1=1',
-        { projCode: projCode?.trim() },
-      )
-      .andWhere(
-        docNumber?.trim()
-          ? 't.tkt_code ILIKE :docNumber'
-          : '1=1',
-        { docNumber: `%${docNumber?.trim()}%` },
-      )
+      .where('TRIM(o.cust_code::text) = :custCode', { custCode: custCode.trim() })
+      .andWhere(projCode?.trim() ? 'TRIM(o.proj_code::text) = :projCode' : '1=1', { projCode: projCode?.trim() })
+      .andWhere(docNumber?.trim() ? 't.tkt_code ILIKE :docNumber' : '1=1', { docNumber: `%${docNumber?.trim()}%` })
       .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
       .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
       .andWhere(`
@@ -69,21 +57,20 @@ export class TickService {
             AND DATE(l.order_date) = DATE(t.order_date)
             AND l.prod_descr IS NOT NULL
             AND TRIM(l.prod_descr) <> ''
-            AND (
-              l.prod_descr ILIKE '%SERVICIO%'
-              OR l.order_qty > 0
-            )
+            AND l.prod_descr NOT ILIKE '%SERVICIO%'
+            AND l.order_qty > 0
         )
       `)
       .select([
-        'DISTINCT ON (t.tkt_code) t.tkt_code AS tkt_code',
+        't.tkt_code AS tkt_code',
         't.order_date AS order_date',
         'TRIM(o.order_code) AS order_code',
         'TRIM(o.proj_code) AS proj_code',
         'TRIM(o.delv_addr) AS proj_name',
       ])
-      .orderBy('t.tkt_code', 'ASC')
-      .addOrderBy('t.order_date', 'ASC')
+      .groupBy('t.tkt_code, t.order_date, o.order_code, o.proj_code, o.delv_addr')
+      .orderBy('t.order_date', 'ASC')
+      .addOrderBy('t.tkt_code', 'ASC')
       .getRawMany();
 
     if (!ticketsRaw.length) {
@@ -91,7 +78,7 @@ export class TickService {
     }
 
     /* =====================================================
-    * 1️⃣ LÍNEAS DE PEDIDO (MISMO DÍA)
+    * 1️⃣ LÍNEAS DE PEDIDO (MISMO DÍA) SOLO PRODUCTOS
     * ===================================================== */
     const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
 
@@ -106,21 +93,24 @@ export class TickService {
       ])
       .from('ordrl', 'l')
       .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
+      .andWhere('l.prod_descr NOT ILIKE :service', { service: '%SERVICIO%' })
+      .andWhere('l.order_qty > 0')
       .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
       .getRawMany();
 
     /* =====================================================
-    * 2️⃣ MAPA order_code + fecha
+    * 2️⃣ MAPA order_code + fecha → todas las líneas
     * ===================================================== */
-    const orderMap = new Map<string, any>();
-
+    const orderMap = new Map<string, any[]>();
     for (const o of orderLines) {
       const key = `${o.order_code}_${o.order_date}`;
-      orderMap.set(key, {
+      const existing = orderMap.get(key) || [];
+      existing.push({
         prod_descr: o.prod_descr,
         total_qty: Number(o.total_qty),
         unit_price: Number(o.unit_price),
       });
+      orderMap.set(key, existing);
     }
 
     /* =====================================================
@@ -128,30 +118,30 @@ export class TickService {
     * ===================================================== */
     const ticketCounter = new Map<string, number>();
 
-    const cleanData = ticketsRaw
-      .map(t => {
-        const key = `${t.order_code}_${t.order_date}`;
-        const order = orderMap.get(key);
+    const cleanData = ticketsRaw.flatMap(t => {
+      const key = `${t.order_code}_${t.order_date}`;
+      const lines = orderMap.get(key);
 
-        if (!order) return null;
+      if (!lines) return [];
 
-        const used = ticketCounter.get(key) ?? 0;
-        const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
+      return lines.map(line => {
+        const counterKey = key + line.prod_descr;
+        const used = ticketCounter.get(counterKey) ?? 0;
+        const remaining = line.total_qty - used * MAX_M3_PER_TICKET;
 
         if (remaining <= 0) return null;
 
         const qty = Math.min(MAX_M3_PER_TICKET, remaining);
-
-        ticketCounter.set(key, used + 1);
+        ticketCounter.set(counterKey, used + 1);
 
         return {
           ...t,
-          prod_descr: order.prod_descr,
+          prod_descr: line.prod_descr,
           total_qty: qty,
-          total_price: qty * order.unit_price,
+          total_price: qty * line.unit_price,
         };
-      })
-      .filter(Boolean); // 🔥 elimina tickets sin volumen
+      }).filter(Boolean);
+    });
 
     /* =====================================================
     * 4️⃣ PAGINACIÓN FINAL
