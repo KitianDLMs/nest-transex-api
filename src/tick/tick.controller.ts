@@ -104,8 +104,20 @@ export class TickController {
       throw new HttpException('No hay tickets', HttpStatus.BAD_REQUEST);
     }
 
+    const archiver = require('archiver');
+    const { join } = require('path');
+    const { existsSync } = require('fs');
+
+    // Limpiamos los códigos de posibles espacios
+    const cleanCodes = tktCodes.map(code => code?.trim()).filter(code => code);
+
+    if (cleanCodes.length === 0) {
+      throw new HttpException('No hay tickets válidos', HttpStatus.BAD_REQUEST);
+    }
+
     const archive = archiver('zip', { zlib: { level: 9 } });
 
+    // Configuramos headers para descargar
     res.set({
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename=documentos_${Date.now()}.zip`,
@@ -115,12 +127,22 @@ export class TickController {
 
     const basePath = join(process.cwd(), 'uploads');
 
-    for (const code of tktCodes) {
+    let filesAdded = 0;
+
+    for (const code of cleanCodes) {
       const filePath = join(basePath, `${code}.pdf`);
 
       if (existsSync(filePath)) {
         archive.file(filePath, { name: `${code}.pdf` });
+        filesAdded++;
+      } else {
+        console.warn(`Archivo no encontrado en producción: ${filePath}`);
       }
+    }
+
+    if (filesAdded === 0) {
+      res.status(404).json({ message: 'No se encontraron archivos PDF para los tickets enviados.' });
+      return;
     }
 
     await archive.finalize();
