@@ -29,144 +29,146 @@ export class TickService {
       throw new BadRequestException('custCode es obligatorio');
     }
 
-    const MAX_M3_PER_TICKET = 8;
+    const cleanCustCode = custCode.trim();
 
     /* =====================================================
-    * 0️⃣ BASE QUERY – TICKETS REALES (SIN PAGINAR)
+    * QUERY PRINCIPAL
     * ===================================================== */
-    const ticketsRaw = await this.tickRepository
+    const qb = this.tickRepository
       .createQueryBuilder('t')
+      .distinctOn(['t.tkt_code', 'l.prod_descr'])
       .innerJoin(
+        'ordrl',
+        'l',
+        `
+          TRIM(l.order_code) = TRIM(t.order_code)
+          AND DATE(l.order_date) = DATE(t.order_date)
+        `,
+      )
+      .leftJoin(
         'ordr',
         'o',
         `
-          TRIM(t.order_code::text) = TRIM(o.order_code::text)
+          TRIM(o.order_code) = TRIM(t.order_code)
           AND DATE(o.order_date) = DATE(t.order_date)
-        `
+        `,
       )
-      .where('TRIM(o.cust_code::text) = :custCode', { custCode: custCode.trim() })
-      .andWhere(projCode?.trim() ? 'TRIM(o.proj_code::text) = :projCode' : '1=1', { projCode: projCode?.trim() })
-      .andWhere(docNumber?.trim() ? 't.tkt_code ILIKE :docNumber' : '1=1', { docNumber: `%${docNumber?.trim()}%` })
-      .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
-      .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
-      .andWhere(`
+      .where('TRIM(t.cust_code::text) = :custCode', {
+        custCode: cleanCustCode,
+      })
+      .andWhere('l.delv_qty > 0')
+      .andWhere('l.prod_descr IS NOT NULL')
+      .andWhere("TRIM(l.prod_descr) <> ''")
+      .andWhere('l.prod_descr NOT ILIKE :service', {
+        service: '%SERVICIO%',
+      });
+
+    /* =========================
+    * FILTROS OPCIONALES
+    * ========================= */
+    if (projCode?.trim()) {
+      qb.andWhere('TRIM(o.proj_code::text) = :projCode', {
+        projCode: projCode.trim(),
+      });
+    }
+
+    if (docNumber?.trim()) {
+      qb.andWhere('t.tkt_code ILIKE :docNumber', {
+        docNumber: `%${docNumber.trim()}%`,
+      });
+    }
+
+    if (dateFrom) {
+      qb.andWhere('t.order_date >= :dateFrom', { dateFrom });
+    }
+
+    if (dateTo) {
+      qb.andWhere('t.order_date <= :dateTo', { dateTo });
+    }
+
+    /* =========================
+    * SELECT FINAL
+    * ========================= */
+    qb.select([
+      't.tkt_code AS tkt_code',
+      't.order_date AS order_date',
+      'TRIM(t.order_code) AS order_code',
+
+      'TRIM(o.proj_code) AS proj_code',
+      'TRIM(o.delv_addr) AS proj_name',
+
+      'TRIM(l.prod_descr) AS prod_descr',
+
+      // cantidad real
+      'l.delv_qty AS total_qty',
+
+      // precio unitario
+      'l.price AS unit_price',
+
+      // total correcto
+      '(l.delv_qty * l.price) AS total_price',
+    ])
+      // 🔑 ORDEN COMPATIBLE CON DISTINCT ON
+      .orderBy('t.tkt_code', 'ASC')
+      .addOrderBy('l.prod_descr', 'ASC')
+      .addOrderBy('t.order_date', 'ASC');
+
+    /* =====================================================
+    * COUNT LIMPIO
+    * ===================================================== */
+    const countQb = this.tickRepository
+      .createQueryBuilder('t')
+      .select('COUNT(DISTINCT t.tkt_code)', 'total')
+      .where('TRIM(t.cust_code::text) = :custCode', {
+        custCode: cleanCustCode,
+      });
+
+    if (projCode?.trim()) {
+      countQb.andWhere(
+        `
         EXISTS (
           SELECT 1
-          FROM ordrl l
-          WHERE TRIM(l.order_code) = TRIM(o.order_code)
-            AND DATE(l.order_date) = DATE(t.order_date)
-            AND l.prod_descr IS NOT NULL
-            AND TRIM(l.prod_descr) <> ''
-            AND l.prod_descr NOT ILIKE '%SERVICIO%'
-            AND l.order_qty > 0
+          FROM ordr o
+          WHERE TRIM(o.order_code) = TRIM(t.order_code)
+          AND DATE(o.order_date) = DATE(t.order_date)
+          AND TRIM(o.proj_code::text) = :projCode
         )
-      `)
-      .select([
-        't.tkt_code AS tkt_code',
-        't.order_date AS order_date',
-        'TRIM(o.order_code) AS order_code',
-        'TRIM(o.proj_code) AS proj_code',
-        'TRIM(o.delv_addr) AS proj_name',
-      ])
-      .groupBy('t.tkt_code, t.order_date, o.order_code, o.proj_code, o.delv_addr')
-      .orderBy('t.order_date', 'ASC')
-      .addOrderBy('t.tkt_code', 'ASC')
-      .getRawMany();
-
-    if (!ticketsRaw.length) {
-      return { data: [], page, limit, total: 0, totalPages: 0 };
+        `,
+        { projCode: projCode.trim() },
+      );
     }
 
-    /* =====================================================
-    * 1️⃣ LÍNEAS DE PEDIDO (MISMO DÍA) SOLO PRODUCTOS
-    * ===================================================== */
-    const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
-
-    const orderLines = await this.tickRepository.manager
-      .createQueryBuilder()
-      .select([
-        'TRIM(l.order_code) AS order_code',
-        'DATE(l.order_date) AS order_date',
-        'TRIM(l.prod_descr) AS prod_descr',
-        'SUM(l.order_qty) AS total_qty',
-        'MAX(l.price) AS unit_price',
-      ])
-      .from('ordrl', 'l')
-      .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
-      .andWhere('l.prod_descr NOT ILIKE :service', { service: '%SERVICIO%' })
-      .andWhere('l.order_qty > 0')
-      .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
-      .getRawMany();
-
-    /* =====================================================
-    * 2️⃣ MAPA order_code + fecha → todas las líneas
-    * ===================================================== */
-    const orderMap = new Map<string, any[]>();
-    for (const o of orderLines) {
-      const key = `${o.order_code}_${o.order_date}`;
-      const existing = orderMap.get(key) || [];
-      existing.push({
-        prod_descr: o.prod_descr,
-        total_qty: Number(o.total_qty),
-        unit_price: Number(o.unit_price),
+    if (docNumber?.trim()) {
+      countQb.andWhere('t.tkt_code ILIKE :docNumber', {
+        docNumber: `%${docNumber.trim()}%`,
       });
-      orderMap.set(key, existing);
     }
 
-    /* =====================================================
-    * 3️⃣ ARMADO FINAL (FILTRANDO 0 m3)
-    * ===================================================== */
-    const ticketCounter = new Map<string, number>();
-
-    const cleanData = ticketsRaw.flatMap(t => {
-      const key = `${t.order_code}_${t.order_date}`;
-      const lines = orderMap.get(key);
-
-      if (!lines) return [];
-
-      return lines.map(line => {
-        const counterKey = key + line.prod_descr;
-        const used = ticketCounter.get(counterKey) ?? 0;
-        const remaining = line.total_qty - used * MAX_M3_PER_TICKET;
-
-        if (remaining <= 0) return null;
-
-        const qty = Math.min(MAX_M3_PER_TICKET, remaining);
-        ticketCounter.set(counterKey, used + 1);
-
-        return {
-          ...t,
-          prod_descr: line.prod_descr,
-          total_qty: qty,
-          total_price: qty * line.unit_price,
-        };
-      }).filter(Boolean);
-    });
-
-    /* =====================================================
-    * 4️⃣ PAGINACIÓN FINAL
-    * ===================================================== */
-    const total = cleanData.length;
-
-    if (limit === 0) {
-      return {
-        data: cleanData,
-        page: 1,
-        limit: total,
-        total,
-        totalPages: 1,
-      };
+    if (dateFrom) {
+      countQb.andWhere('t.order_date >= :dateFrom', { dateFrom });
     }
 
-    const totalPages = Math.ceil(total / limit);
-    const start = (page - 1) * limit;
+    if (dateTo) {
+      countQb.andWhere('t.order_date <= :dateTo', { dateTo });
+    }
+
+    const { total } = await countQb.getRawOne();
+
+    /* =========================
+    * PAGINACIÓN
+    * ========================= */
+    if (limit > 0) {
+      qb.offset((page - 1) * limit).limit(limit);
+    }
+
+    const data = await qb.getRawMany();
 
     return {
-      data: cleanData.slice(start, start + limit),
+      data,
       page,
       limit,
-      total,
-      totalPages,
+      total: Number(total),
+      totalPages: limit > 0 ? Math.ceil(Number(total) / limit) : 1,
     };
   }
 
@@ -183,127 +185,91 @@ export class TickService {
       throw new BadRequestException('custCode es obligatorio');
     }
 
-    const MAX_M3_PER_TICKET = 8;
+    const cleanCustCode = custCode.trim();
 
     /* =====================================================
-    * 0️⃣ BASE QUERY – IGUAL AL SEARCH
+    * QUERY PRINCIPAL – 1 FILA POR TICKET
     * ===================================================== */
-    const ticketsRaw = await this.tickRepository
+    const qb = this.tickRepository
       .createQueryBuilder('t')
       .innerJoin(
+        'ordrl',
+        'l',
+        `
+          TRIM(l.order_code) = TRIM(t.order_code)
+          AND DATE(l.order_date) = DATE(t.order_date)
+        `,
+      )
+      .leftJoin(
         'ordr',
         'o',
         `
-          TRIM(t.order_code::text) = TRIM(o.order_code::text)
+          TRIM(o.order_code) = TRIM(t.order_code)
           AND DATE(o.order_date) = DATE(t.order_date)
         `,
       )
-      .where('TRIM(o.cust_code::text) = :custCode', {
-        custCode: custCode.trim(),
+      .where('TRIM(t.cust_code::text) = :custCode', {
+        custCode: cleanCustCode,
       })
-      .andWhere(
-        projCode?.trim()
-          ? 'TRIM(o.proj_code::text) = :projCode'
-          : '1=1',
-        { projCode: projCode?.trim() },
-      )
-      .andWhere(
-        docNumber?.trim()
-          ? 't.tkt_code ILIKE :docNumber'
-          : '1=1',
-        { docNumber: `%${docNumber?.trim()}%` },
-      )
-      .andWhere(dateFrom ? 't.order_date >= :dateFrom' : '1=1', { dateFrom })
-      .andWhere(dateTo ? 't.order_date <= :dateTo' : '1=1', { dateTo })
-      .andWhere(`
-        EXISTS (
-          SELECT 1
-          FROM ordrl l
-          WHERE TRIM(l.order_code) = TRIM(o.order_code)
-            AND DATE(l.order_date) = DATE(t.order_date)
-            AND l.prod_descr IS NOT NULL
-            AND TRIM(l.prod_descr) <> ''
-            AND (
-              l.prod_descr ILIKE '%SERVICIO%'
-              OR l.order_qty > 0
-            )
-        )
-      `)
-      .select([
-        'DISTINCT ON (t.tkt_code) t.tkt_code AS tkt_code',
-        't.order_date AS order_date',
-        'TRIM(o.order_code) AS order_code',
-        'TRIM(o.proj_code) AS proj_code',
-        'TRIM(o.delv_addr) AS proj_name',
-      ])
-      .orderBy('t.tkt_code', 'ASC')
-      .addOrderBy('t.order_date', 'ASC')
-      .getRawMany();
-
-    if (!ticketsRaw.length) return [];
-
-    /* =====================================================
-    * 1️⃣ LÍNEAS DE PEDIDO
-    * ===================================================== */
-    const orderCodes = [...new Set(ticketsRaw.map(t => t.order_code))];
-
-    const orderLines = await this.tickRepository.manager
-      .createQueryBuilder()
-      .select([
-        'TRIM(l.order_code) AS order_code',
-        'DATE(l.order_date) AS order_date',
-        'TRIM(l.prod_descr) AS prod_descr',
-        'SUM(l.order_qty) AS total_qty',
-        'MAX(l.price) AS unit_price',
-      ])
-      .from('ordrl', 'l')
-      .where('TRIM(l.order_code) IN (:...orderCodes)', { orderCodes })
-      .groupBy('l.order_code, DATE(l.order_date), l.prod_descr')
-      .getRawMany();
-
-    /* =====================================================
-    * 2️⃣ MAPA order_code + fecha
-    * ===================================================== */
-    const orderMap = new Map<string, any>();
-
-    orderLines.forEach(o => {
-      orderMap.set(`${o.order_code}_${o.order_date}`, {
-        prod_descr: o.prod_descr,
-        total_qty: Number(o.total_qty),
-        unit_price: Number(o.unit_price),
+      .andWhere('l.delv_qty > 0')
+      .andWhere('l.prod_descr IS NOT NULL')
+      .andWhere("TRIM(l.prod_descr) <> ''")
+      .andWhere('l.prod_descr NOT ILIKE :service', {
+        service: '%SERVICIO%',
       });
-    });
+
+    /* =========================
+    * FILTROS OPCIONALES
+    * ========================= */
+    if (projCode?.trim()) {
+      qb.andWhere('TRIM(o.proj_code::text) = :projCode', {
+        projCode: projCode.trim(),
+      });
+    }
+
+    if (docNumber?.trim()) {
+      qb.andWhere('t.tkt_code ILIKE :docNumber', {
+        docNumber: `%${docNumber.trim()}%`,
+      });
+    }
+
+    if (dateFrom) {
+      qb.andWhere('t.order_date >= :dateFrom', { dateFrom });
+    }
+
+    if (dateTo) {
+      qb.andWhere('t.order_date <= :dateTo', { dateTo });
+    }
+
+    /* =========================
+    * SELECT FINAL (AGRUPADO)
+    * ========================= */
+    qb.select([
+      't.tkt_code AS tkt_code',
+      't.order_date AS order_date',
+      'TRIM(t.order_code) AS order_code',
+
+      'TRIM(o.proj_code) AS proj_code',
+      'TRIM(o.delv_addr) AS proj_name',
+
+      // 🔥 totales por ticket
+      'SUM(l.delv_qty) AS total_qty',
+      'SUM(l.delv_qty * l.price) AS total_price',
+    ])
+      .groupBy(`
+        t.tkt_code,
+        t.order_date,
+        t.order_code,
+        o.proj_code,
+        o.delv_addr
+      `)
+      .orderBy('t.tkt_code', 'ASC')
+      .addOrderBy('t.order_date', 'ASC');
 
     /* =====================================================
-    * 3️⃣ ARMADO FINAL (SIN TICKETS 0 m3)
+    * RESULTADO COMPLETO (SIN PAGINACIÓN)
     * ===================================================== */
-    const ticketCounter = new Map<string, number>();
-
-    return ticketsRaw
-      .map(t => {
-        const key = `${t.order_code}_${t.order_date}`;
-        const order = orderMap.get(key);
-
-        if (!order) return null;
-
-        const used = ticketCounter.get(key) ?? 0;
-        const remaining = order.total_qty - used * MAX_M3_PER_TICKET;
-
-        // 🔥 SI NO HAY VOLUMEN, EL TICKET NO EXISTE
-        if (remaining <= 0) return null;
-
-        const qty = Math.min(MAX_M3_PER_TICKET, remaining);
-
-        ticketCounter.set(key, used + 1);
-
-        return {
-          ...t,
-          prod_descr: order.prod_descr,
-          total_qty: qty,
-          total_price: qty * order.unit_price,
-        };
-      })
-      .filter(Boolean); // 🔥 elimina tickets inválidos
+    return await qb.getRawMany();
   }
 
   async create(dto: CreateTickDto, file?: Express.Multer.File) {
