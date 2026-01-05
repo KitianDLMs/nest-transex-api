@@ -34,14 +34,6 @@ export class TickController {
     return this.tickService.create(dto);
   }
 
-  @Get('projects')
-  async getProjects(@Query('custCode') custCode: string) {
-    if (!custCode?.trim()) {
-      throw new BadRequestException('custCode es obligatorio');
-    }
-    return this.tickService.getProjectsForCustomer({ custCode });
-  }
-
   @Get('by-customer/:custCode')
   async findByCustomer(
     @Param('custCode') custCode: string,

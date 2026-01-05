@@ -14,29 +14,6 @@ export class TickService {
     private readonly tickRepository: Repository<Tick>,    
   ) {}
 
-  async getProjectsForCustomer(filters: any) {
-    const { custCode } = filters;
-
-    if (!custCode?.trim()) {
-      throw new BadRequestException('custCode es obligatorio');
-    }
-
-    const cleanCustCode = custCode.trim();
-
-    // ✅ Traer todos los proyectos que pertenecen al cliente desde la tabla proj
-    const projects = await this.tickRepository.manager
-      .createQueryBuilder()
-      .select([
-        'TRIM(p.proj_code) AS proj_code',
-        'TRIM(p.proj_name) AS proj_name',
-      ])
-      .from('proj', 'p')
-      .where('TRIM(p.cust_code) = :custCode', { custCode: cleanCustCode })
-      .orderBy('p.proj_name', 'ASC')
-      .getRawMany();
-
-    return projects; // [{proj_code: '107640', proj_name: 'SECTOR RANCAGUA'}, ...]
-  }
   async search(filters: TickFilterDto) {
     const {
       custCode,
@@ -54,118 +31,55 @@ export class TickService {
 
     const cleanCustCode = custCode.trim();
 
-    /* =====================================================
-    * QUERY PRINCIPAL (1 FILA = 1 CAMIÓN, máximo 8 m³)
-    * ===================================================== */
+    // Query principal
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
-        'x.tkt_code AS tkt_code',
-        'x.order_date AS order_date',
-        'x.order_code AS order_code',
-        'x.cust_code AS cust_code',
-        'x.proj_code AS proj_code',
-        'x.proj_name AS proj_name',
-        'x.prod_name AS prod_name',
-        'x.quantity AS quantity',
-        'x.unit_price AS unit_price',
-        'x.total_price AS total_price',
+        'a.tkt_code AS tkt_code',
+        'a.order_code AS order_code',
+        'a.order_date AS order_date',
+        'c.proj_code AS proj_code',
+        'c.cust_code AS cust_code',
+        'b.delv_qty AS m3',        // cantidad entregada
+        'd.price AS unit_price',   // precio unitario real
+        'd.prod_descr AS prod_descr', // descripción del producto
       ])
-      .from(subQb => {
-        const sq = subQb
-          .select([
-            'tktl.tkt_code AS tkt_code',
-            't.order_date AS order_date',
-            'TRIM(t.order_code) AS order_code',
+      .from('tick', 'a')
+      .innerJoin(
+        'ordr',
+        'c',
+        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
+      )
+      .leftJoin(
+        'tktl',
+        'b',
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+      )
+      .leftJoin(
+        'ordl',
+        'd',
+        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num'
+      )
+      .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
+      // Excluir tickets de bombeo
+      .andWhere("d.prod_descr NOT ILIKE '%bombeo%'");
 
-            'TRIM(o.cust_code) AS cust_code',
-            'TRIM(o.proj_code) AS proj_code',
-            'TRIM(o.delv_addr) AS proj_name',
+    // filtros opcionales
+    if (projCode?.trim()) {
+      qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+    }
 
-            'TRIM(l.prod_descr) AS prod_name',
+    if (docNumber?.trim()) {
+      qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
+    }
 
-            /* 🔒 CAST EXPLÍCITO y límite 8 m³ */
-            'LEAST(tktl.delv_qty::numeric, 8.00) AS quantity',
-            'tktl.ext_price_amt::numeric AS total_price',
+    if (dateFrom) {
+      qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
+    }
 
-            /* unit_price original */
-            `
-            CASE
-              WHEN tktl.delv_qty::numeric > 0
-              THEN tktl.ext_price_amt::numeric / tktl.delv_qty::numeric
-              ELSE 0
-            END AS unit_price
-            `,
-
-            `
-            ROW_NUMBER() OVER (
-              PARTITION BY tktl.tkt_code
-              ORDER BY tktl.delv_qty::numeric DESC
-            ) AS rn
-            `,
-          ])
-          .from('tktl', 'tktl')
-          .innerJoin(
-            'tick',
-            't',
-            'TRIM(t.tkt_code) = TRIM(tktl.tkt_code)',
-          )
-          .innerJoin(
-            'ordr',
-            'o',
-            `
-              TRIM(o.order_code) = TRIM(t.order_code)
-              AND DATE(o.order_date) = DATE(t.order_date)
-            `,
-          )
-          .leftJoin(
-            'ordl',
-            'l',
-            `
-              TRIM(l.order_code) = TRIM(t.order_code)
-              AND DATE(l.order_date) = DATE(t.order_date)
-            `,
-          )
-          .where('TRIM(o.cust_code) = :custCode')
-
-          /* ✅ NULLIF + CAST */
-          .andWhere('NULLIF(tktl.ext_price_amt, \'\')::numeric IS NOT NULL')
-          .andWhere('tktl.delv_qty::numeric > 0')
-
-          /* 🚫 EXCLUIR BOMBEO */
-          .andWhere(`
-            l.prod_descr IS NULL
-            OR l.prod_descr NOT ILIKE :pumpingService
-          `);
-
-        if (projCode?.trim()) {
-          sq.andWhere('TRIM(o.proj_code) = :projCode');
-        }
-
-        if (docNumber?.trim()) {
-          sq.andWhere('tktl.tkt_code ILIKE :docNumber');
-        }
-
-        if (dateFrom) {
-          sq.andWhere('t.order_date >= :dateFrom');
-        }
-
-        if (dateTo) {
-          sq.andWhere('t.order_date <= :dateTo');
-        }
-
-        return sq;
-      }, 'x')
-      .where('x.rn = 1')
-      .orderBy('x.order_date', 'ASC')
-      .setParameters({
-        custCode: cleanCustCode,
-        projCode: projCode?.trim(),
-        docNumber: docNumber ? `%${docNumber.trim()}%` : undefined,
-        dateFrom,
-        dateTo,
-        pumpingService: '%BOMBEO%',
-      });
+    if (dateTo) {
+      qb.andWhere('a.order_date <= :dateTo', { dateTo });
+    }
 
     if (limit > 0) {
       qb.offset((page - 1) * limit).limit(limit);
@@ -173,46 +87,44 @@ export class TickService {
 
     const data = await qb.getRawMany();
 
-    /* =====================================================
-    * COUNT (1 POR GUÍA REAL)
-    * ===================================================== */
+    // Conteo total
     const countQb = this.tickRepository.manager
       .createQueryBuilder()
-      .select('COUNT(DISTINCT tktl.tkt_code)', 'total')
-      .from('tktl', 'tktl')
-      .innerJoin(
-        'tick',
-        't',
-        'TRIM(t.tkt_code) = TRIM(tktl.tkt_code)',
-      )
+      .select('COUNT(*)', 'total')
+      .from('tick', 'a')
       .innerJoin(
         'ordr',
-        'o',
-        `
-          TRIM(o.order_code) = TRIM(t.order_code)
-          AND DATE(o.order_date) = DATE(t.order_date)
-        `,
+        'c',
+        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
       )
-      .where('TRIM(o.cust_code) = :custCode')
+      .leftJoin(
+        'tktl',
+        'b',
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+      )
+      .leftJoin(
+        'ordl',
+        'd',
+        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num'
+      )
+      .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
+      .andWhere("d.prod_descr NOT ILIKE '%bombeo%'"); // filtro de bombeo en el conteo también
 
-      /* 🔒 MISMA REGLA QUE EL QUERY PRINCIPAL */
-      .andWhere('NULLIF(tktl.ext_price_amt, \'\')::numeric IS NOT NULL')
-      .andWhere('tktl.delv_qty::numeric > 0')
+    if (projCode?.trim()) {
+      countQb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+    }
 
-      /* 🚫 EXCLUIR BOMBEO */
-      .andWhere(`
-        NOT EXISTS (
-          SELECT 1
-          FROM ordl l
-          WHERE TRIM(l.order_code) = TRIM(t.order_code)
-            AND DATE(l.order_date) = DATE(t.order_date)
-            AND l.prod_descr ILIKE :pumpingService
-        )
-      `)
-      .setParameters({
-        custCode: cleanCustCode,
-        pumpingService: '%BOMBEO%',
-      });
+    if (docNumber?.trim()) {
+      countQb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
+    }
+
+    if (dateFrom) {
+      countQb.andWhere('a.order_date >= :dateFrom', { dateFrom });
+    }
+
+    if (dateTo) {
+      countQb.andWhere('a.order_date <= :dateTo', { dateTo });
+    }
 
     const { total } = await countQb.getRawOne();
 
@@ -226,13 +138,7 @@ export class TickService {
   }
 
   async searchForExcel(filters: TickFilterDto) {
-    const {
-      custCode,
-      projCode,
-      docNumber,
-      dateFrom,
-      dateTo,
-    } = filters;
+    const { custCode, projCode, docNumber, dateFrom, dateTo } = filters;
 
     if (!custCode?.trim()) {
       throw new BadRequestException('custCode es obligatorio');
@@ -240,88 +146,61 @@ export class TickService {
 
     const cleanCustCode = custCode.trim();
 
-    /* =====================================================
-    * QUERY PRINCIPAL – 1 FILA POR TICKET
-    * ===================================================== */
-    const qb = this.tickRepository
-      .createQueryBuilder('t')
+    // Query principal – 1 fila por línea de ticket
+    const qb = this.tickRepository.manager
+      .createQueryBuilder()
+      .select([
+        'a.tkt_code AS tkt_code',
+        'a.order_code AS order_code',
+        'a.order_date AS order_date',
+        'c.proj_code AS proj_code',
+        'c.cust_code AS cust_code',
+        'b.delv_qty AS m3',     // cantidad entregada
+        'd.price AS unit_price',// precio unitario
+        'd.prod_descr AS prod_descr', // descripción del producto
+      ])
+      .from('tick', 'a')
       .innerJoin(
-        'ordl',
-        'l',
-        `
-          TRIM(l.order_code) = TRIM(t.order_code)
-          AND DATE(l.order_date) = DATE(t.order_date)
-        `,
+        'ordr',
+        'c',
+        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
       )
       .leftJoin(
-        'ordr',
-        'o',
-        `
-          TRIM(o.order_code) = TRIM(t.order_code)
-          AND DATE(o.order_date) = DATE(t.order_date)
-        `,
+        'tktl',
+        'b',
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
       )
-      .where('TRIM(t.cust_code::text) = :custCode', {
-        custCode: cleanCustCode,
-      })
-      .andWhere('l.delv_qty > 0')
-      .andWhere('l.prod_descr IS NOT NULL')
-      .andWhere("TRIM(l.prod_descr) <> ''")
-      .andWhere('l.prod_descr NOT ILIKE :service', {
-        service: '%SERVICIO%',
-      });
+      .leftJoin(
+        'ordl',
+        'd',
+        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num'
+      )
+      .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
+      .andWhere("d.prod_descr NOT ILIKE '%bombeo%'") // excluir servicios de bombeo
+      .andWhere('b.delv_qty::numeric > 0')
+      .andWhere('d.prod_descr IS NOT NULL')
+      .andWhere("TRIM(d.prod_descr) <> ''");
 
-    /* =========================
-    * FILTROS OPCIONALES
-    * ========================= */
+    // filtros opcionales
     if (projCode?.trim()) {
-      qb.andWhere('TRIM(o.proj_code::text) = :projCode', {
-        projCode: projCode.trim(),
-      });
+      qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
     }
 
     if (docNumber?.trim()) {
-      qb.andWhere('t.tkt_code ILIKE :docNumber', {
-        docNumber: `%${docNumber.trim()}%`,
-      });
+      qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
     }
 
     if (dateFrom) {
-      qb.andWhere('t.order_date >= :dateFrom', { dateFrom });
+      qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
     }
 
     if (dateTo) {
-      qb.andWhere('t.order_date <= :dateTo', { dateTo });
+      qb.andWhere('a.order_date <= :dateTo', { dateTo });
     }
 
-    /* =========================
-    * SELECT FINAL (AGRUPADO)
-    * ========================= */
-    qb.select([
-      't.tkt_code AS tkt_code',
-      't.order_date AS order_date',
-      'TRIM(t.order_code) AS order_code',
+    // Ordenar por ticket y fecha
+    qb.orderBy('a.tkt_code', 'ASC').addOrderBy('a.order_date', 'ASC');
 
-      'TRIM(o.proj_code) AS proj_code',
-      'TRIM(o.delv_addr) AS proj_name',
-
-      // 🔥 totales por ticket
-      'SUM(l.delv_qty) AS total_qty',
-      'SUM(l.delv_qty * l.price) AS total_price',
-    ])
-      .groupBy(`
-        t.tkt_code,
-        t.order_date,
-        t.order_code,
-        o.proj_code,
-        o.delv_addr
-      `)
-      .orderBy('t.tkt_code', 'ASC')
-      .addOrderBy('t.order_date', 'ASC');
-
-    /* =====================================================
-    * RESULTADO COMPLETO (SIN PAGINACIÓN)
-    * ===================================================== */
     return await qb.getRawMany();
   }
 
