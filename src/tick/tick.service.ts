@@ -14,6 +14,29 @@ export class TickService {
     private readonly tickRepository: Repository<Tick>,    
   ) {}
 
+  async getProjectsForCustomer(filters: any) {
+    const { custCode } = filters;
+
+    if (!custCode?.trim()) {
+      throw new BadRequestException('custCode es obligatorio');
+    }
+
+    const cleanCustCode = custCode.trim();
+
+    // ✅ Traer todos los proyectos que pertenecen al cliente desde la tabla proj
+    const projects = await this.tickRepository.manager
+      .createQueryBuilder()
+      .select([
+        'TRIM(p.proj_code) AS proj_code',
+        'TRIM(p.proj_name) AS proj_name',
+      ])
+      .from('proj', 'p')
+      .where('TRIM(p.cust_code) = :custCode', { custCode: cleanCustCode })
+      .orderBy('p.proj_name', 'ASC')
+      .getRawMany();
+
+    return projects; // [{proj_code: '107640', proj_name: 'SECTOR RANCAGUA'}, ...]
+  }
   async search(filters: TickFilterDto) {
     const {
       custCode,
@@ -32,7 +55,7 @@ export class TickService {
     const cleanCustCode = custCode.trim();
 
     /* =====================================================
-    * QUERY PRINCIPAL (ROW_NUMBER → PROD SAFE)
+    * QUERY PRINCIPAL (1 FILA = 1 CAMIÓN, máximo 8 m³)
     * ===================================================== */
     const qb = this.tickRepository.manager
       .createQueryBuilder()
@@ -40,45 +63,54 @@ export class TickService {
         'x.tkt_code AS tkt_code',
         'x.order_date AS order_date',
         'x.order_code AS order_code',
+        'x.cust_code AS cust_code',
         'x.proj_code AS proj_code',
         'x.proj_name AS proj_name',
-        'x.prod_descr AS prod_descr',
-        'x.total_qty AS total_qty',
+        'x.prod_name AS prod_name',
+        'x.quantity AS quantity',
         'x.unit_price AS unit_price',
         'x.total_price AS total_price',
       ])
       .from(subQb => {
         const sq = subQb
           .select([
-            't.tkt_code AS tkt_code',
+            'tktl.tkt_code AS tkt_code',
             't.order_date AS order_date',
             'TRIM(t.order_code) AS order_code',
 
+            'TRIM(o.cust_code) AS cust_code',
             'TRIM(o.proj_code) AS proj_code',
             'TRIM(o.delv_addr) AS proj_name',
 
-            'TRIM(l.prod_descr) AS prod_descr',
-            'l.delv_qty AS total_qty',
-            'l.price AS unit_price',
-            '(l.delv_qty * l.price) AS total_price',
+            'TRIM(l.prod_descr) AS prod_name',
+
+            /* 🔒 CAST EXPLÍCITO y límite 8 m³ */
+            'LEAST(tktl.delv_qty::numeric, 8.00) AS quantity',
+            'tktl.ext_price_amt::numeric AS total_price',
+
+            /* unit_price original */
+            `
+            CASE
+              WHEN tktl.delv_qty::numeric > 0
+              THEN tktl.ext_price_amt::numeric / tktl.delv_qty::numeric
+              ELSE 0
+            END AS unit_price
+            `,
 
             `
             ROW_NUMBER() OVER (
-              PARTITION BY t.tkt_code, l.prod_descr
-              ORDER BY t.order_date ASC
+              PARTITION BY tktl.tkt_code
+              ORDER BY tktl.delv_qty::numeric DESC
             ) AS rn
             `,
           ])
-          .from('tick', 't')
+          .from('tktl', 'tktl')
           .innerJoin(
-            'ordrl',
-            'l',
-            `
-              TRIM(l.order_code) = TRIM(t.order_code)
-              AND DATE(l.order_date) = DATE(t.order_date)
-            `,
+            'tick',
+            't',
+            'TRIM(t.tkt_code) = TRIM(tktl.tkt_code)',
           )
-          .leftJoin(
+          .innerJoin(
             'ordr',
             'o',
             `
@@ -86,21 +118,32 @@ export class TickService {
               AND DATE(o.order_date) = DATE(t.order_date)
             `,
           )
-          .where('TRIM(t.cust_code::text) = :custCode')
-          .andWhere('l.delv_qty > 0')
-          .andWhere('l.prod_descr IS NOT NULL')
-          .andWhere("TRIM(l.prod_descr) <> ''")
-          .andWhere('l.prod_descr NOT ILIKE :service');
+          .leftJoin(
+            'ordl',
+            'l',
+            `
+              TRIM(l.order_code) = TRIM(t.order_code)
+              AND DATE(l.order_date) = DATE(t.order_date)
+            `,
+          )
+          .where('TRIM(o.cust_code) = :custCode')
 
-        /* =========================
-        * FILTROS OPCIONALES
-        * ========================= */
+          /* ✅ NULLIF + CAST */
+          .andWhere('NULLIF(tktl.ext_price_amt, \'\')::numeric IS NOT NULL')
+          .andWhere('tktl.delv_qty::numeric > 0')
+
+          /* 🚫 EXCLUIR BOMBEO */
+          .andWhere(`
+            l.prod_descr IS NULL
+            OR l.prod_descr NOT ILIKE :pumpingService
+          `);
+
         if (projCode?.trim()) {
-          sq.andWhere('TRIM(o.proj_code::text) = :projCode');
+          sq.andWhere('TRIM(o.proj_code) = :projCode');
         }
 
         if (docNumber?.trim()) {
-          sq.andWhere('t.tkt_code ILIKE :docNumber');
+          sq.andWhere('tktl.tkt_code ILIKE :docNumber');
         }
 
         if (dateFrom) {
@@ -113,22 +156,17 @@ export class TickService {
 
         return sq;
       }, 'x')
-      // 👇 deduplicación REAL
       .where('x.rn = 1')
-      // 👇 ORDEN GARANTIZADO
       .orderBy('x.order_date', 'ASC')
       .setParameters({
         custCode: cleanCustCode,
-        service: '%SERVICIO%',
         projCode: projCode?.trim(),
         docNumber: docNumber ? `%${docNumber.trim()}%` : undefined,
         dateFrom,
         dateTo,
+        pumpingService: '%BOMBEO%',
       });
 
-    /* =========================
-    * PAGINACIÓN
-    * ========================= */
     if (limit > 0) {
       qb.offset((page - 1) * limit).limit(limit);
     }
@@ -136,49 +174,48 @@ export class TickService {
     const data = await qb.getRawMany();
 
     /* =====================================================
-    * COUNT (COHERENTE CON FILTROS)
+    * COUNT (1 POR GUÍA REAL)
     * ===================================================== */
-    const countQb = this.tickRepository
-      .createQueryBuilder('t')
-      .select('COUNT(DISTINCT t.tkt_code)', 'total')
-      .where('TRIM(t.cust_code::text) = :custCode', {
-        custCode: cleanCustCode,
-      });
-
-    if (projCode?.trim()) {
-      countQb.andWhere(
+    const countQb = this.tickRepository.manager
+      .createQueryBuilder()
+      .select('COUNT(DISTINCT tktl.tkt_code)', 'total')
+      .from('tktl', 'tktl')
+      .innerJoin(
+        'tick',
+        't',
+        'TRIM(t.tkt_code) = TRIM(tktl.tkt_code)',
+      )
+      .innerJoin(
+        'ordr',
+        'o',
         `
-        EXISTS (
-          SELECT 1
-          FROM ordr o
-          WHERE TRIM(o.order_code) = TRIM(t.order_code)
-            AND DATE(o.order_date) = DATE(t.order_date)
-            AND TRIM(o.proj_code::text) = :projCode
-        )
+          TRIM(o.order_code) = TRIM(t.order_code)
+          AND DATE(o.order_date) = DATE(t.order_date)
         `,
-        { projCode: projCode.trim() },
-      );
-    }
+      )
+      .where('TRIM(o.cust_code) = :custCode')
 
-    if (docNumber?.trim()) {
-      countQb.andWhere('t.tkt_code ILIKE :docNumber', {
-        docNumber: `%${docNumber.trim()}%`,
+      /* 🔒 MISMA REGLA QUE EL QUERY PRINCIPAL */
+      .andWhere('NULLIF(tktl.ext_price_amt, \'\')::numeric IS NOT NULL')
+      .andWhere('tktl.delv_qty::numeric > 0')
+
+      /* 🚫 EXCLUIR BOMBEO */
+      .andWhere(`
+        NOT EXISTS (
+          SELECT 1
+          FROM ordl l
+          WHERE TRIM(l.order_code) = TRIM(t.order_code)
+            AND DATE(l.order_date) = DATE(t.order_date)
+            AND l.prod_descr ILIKE :pumpingService
+        )
+      `)
+      .setParameters({
+        custCode: cleanCustCode,
+        pumpingService: '%BOMBEO%',
       });
-    }
-
-    if (dateFrom) {
-      countQb.andWhere('t.order_date >= :dateFrom', { dateFrom });
-    }
-
-    if (dateTo) {
-      countQb.andWhere('t.order_date <= :dateTo', { dateTo });
-    }
 
     const { total } = await countQb.getRawOne();
 
-    /* =====================================================
-    * RESPUESTA
-    * ===================================================== */
     return {
       data,
       page,
@@ -209,7 +246,7 @@ export class TickService {
     const qb = this.tickRepository
       .createQueryBuilder('t')
       .innerJoin(
-        'ordrl',
+        'ordl',
         'l',
         `
           TRIM(l.order_code) = TRIM(t.order_code)

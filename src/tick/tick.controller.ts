@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res, Query, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res, Query, HttpException, HttpStatus, NotFoundException, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TickService } from './tick.service';
 import { CreateTickDto } from './dto/create-tick.dto';
@@ -32,6 +32,14 @@ export class TickController {
   @Post()
   async createWithoutFile(@Body() dto: CreateTickDto) {
     return this.tickService.create(dto);
+  }
+
+  @Get('projects')
+  async getProjects(@Query('custCode') custCode: string) {
+    if (!custCode?.trim()) {
+      throw new BadRequestException('custCode es obligatorio');
+    }
+    return this.tickService.getProjectsForCustomer({ custCode });
   }
 
   @Get('by-customer/:custCode')
