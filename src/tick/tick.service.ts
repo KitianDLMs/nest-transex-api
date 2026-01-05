@@ -40,9 +40,9 @@ export class TickService {
         'a.order_date AS order_date',
         'c.proj_code AS proj_code',
         'c.cust_code AS cust_code',
-        'b.delv_qty AS m3',        // cantidad entregada
-        'd.price AS unit_price',   // precio unitario real
-        'd.prod_descr AS prod_descr', // descripción del producto
+        'b.delv_qty AS m3',         
+        'd.price AS unit_price',  
+        'd.prod_descr AS prod_descr',
       ])
       .from('tick', 'a')
       .innerJoin(
