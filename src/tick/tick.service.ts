@@ -32,10 +32,24 @@ export class TickService {
     const cleanCustCode = custCode.trim();
 
     /* =====================================================
-    * QUERY PRINCIPAL
+    * 1️⃣ SUBQUERY (deduplicación correcta)
     * ===================================================== */
-    const qb = this.tickRepository
+    const baseQb = this.tickRepository
       .createQueryBuilder('t')
+      .select([
+        't.tkt_code AS tkt_code',
+        't.order_date AS order_date',
+        'TRIM(t.order_code) AS order_code',
+
+        'TRIM(o.proj_code) AS proj_code',
+        'TRIM(o.delv_addr) AS proj_name',
+
+        'TRIM(l.prod_descr) AS prod_descr',
+
+        'l.delv_qty AS total_qty',
+        'l.price AS unit_price',
+        '(l.delv_qty * l.price) AS total_price',
+      ])
       .distinctOn(['t.tkt_code', 'l.prod_descr'])
       .innerJoin(
         'ordrl',
@@ -67,54 +81,52 @@ export class TickService {
     * FILTROS OPCIONALES
     * ========================= */
     if (projCode?.trim()) {
-      qb.andWhere('TRIM(o.proj_code::text) = :projCode', {
+      baseQb.andWhere('TRIM(o.proj_code::text) = :projCode', {
         projCode: projCode.trim(),
       });
     }
 
     if (docNumber?.trim()) {
-      qb.andWhere('t.tkt_code ILIKE :docNumber', {
+      baseQb.andWhere('t.tkt_code ILIKE :docNumber', {
         docNumber: `%${docNumber.trim()}%`,
       });
     }
 
     if (dateFrom) {
-      qb.andWhere('t.order_date >= :dateFrom', { dateFrom });
+      baseQb.andWhere('t.order_date >= :dateFrom', { dateFrom });
     }
 
     if (dateTo) {
-      qb.andWhere('t.order_date <= :dateTo', { dateTo });
+      baseQb.andWhere('t.order_date <= :dateTo', { dateTo });
     }
 
-    /* =========================
-    * SELECT FINAL
-    * ========================= */
-    qb.select([
-      't.tkt_code AS tkt_code',
-      't.order_date AS order_date',
-      'TRIM(t.order_code) AS order_code',
-
-      'TRIM(o.proj_code) AS proj_code',
-      'TRIM(o.delv_addr) AS proj_name',
-
-      'TRIM(l.prod_descr) AS prod_descr',
-
-      // cantidad real
-      'l.delv_qty AS total_qty',
-
-      // precio unitario
-      'l.price AS unit_price',
-
-      // total correcto
-      '(l.delv_qty * l.price) AS total_price',
-    ])
-      // 🔑 ORDEN COMPATIBLE CON DISTINCT ON
+    // 🔑 define QUÉ fila se queda por ticket
+    baseQb
       .orderBy('t.tkt_code', 'ASC')
       .addOrderBy('l.prod_descr', 'ASC')
       .addOrderBy('t.order_date', 'ASC');
 
     /* =====================================================
-    * COUNT LIMPIO
+    * 2️⃣ QUERY EXTERNA (orden REAL por fecha)
+    * ===================================================== */
+    const qb = this.tickRepository.manager
+      .createQueryBuilder()
+      .select('*')
+      .from(`(${baseQb.getQuery()})`, 'x')
+      .setParameters(baseQb.getParameters())
+      .orderBy('x.order_date', 'ASC');
+
+    /* =========================
+    * PAGINACIÓN
+    * ========================= */
+    if (limit > 0) {
+      qb.offset((page - 1) * limit).limit(limit);
+    }
+
+    const data = await qb.getRawMany();
+
+    /* =====================================================
+    * 3️⃣ COUNT CORRECTO (sin duplicados)
     * ===================================================== */
     const countQb = this.tickRepository
       .createQueryBuilder('t')
@@ -130,8 +142,8 @@ export class TickService {
           SELECT 1
           FROM ordr o
           WHERE TRIM(o.order_code) = TRIM(t.order_code)
-          AND DATE(o.order_date) = DATE(t.order_date)
-          AND TRIM(o.proj_code::text) = :projCode
+            AND DATE(o.order_date) = DATE(t.order_date)
+            AND TRIM(o.proj_code::text) = :projCode
         )
         `,
         { projCode: projCode.trim() },
@@ -154,15 +166,9 @@ export class TickService {
 
     const { total } = await countQb.getRawOne();
 
-    /* =========================
-    * PAGINACIÓN
-    * ========================= */
-    if (limit > 0) {
-      qb.offset((page - 1) * limit).limit(limit);
-    }
-
-    const data = await qb.getRawMany();
-
+    /* =====================================================
+    * 4️⃣ RESPUESTA
+    * ===================================================== */
     return {
       data,
       page,
