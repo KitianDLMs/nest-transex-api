@@ -17,7 +17,7 @@ export class TickService {
   async search(filters: TickFilterDto) {
     const {
       custCode,
-      projCode,      // puede ser string o string[]
+      projCode,
       docNumber,
       dateFrom,
       dateTo,
@@ -31,19 +31,18 @@ export class TickService {
 
     const cleanCustCode = custCode.trim();
 
-    // Query principal
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
-        'DISTINCT TRIM(c.cust_code) AS "custCode"',
+        'TRIM(c.cust_code) AS "custCode"',
         'TRIM(c.cust_name) AS "custName"',
         'TRIM(c.proj_code) AS "projCode"',
-        'COALESCE(TRIM(e.proj_name), \'Sin proyecto\') AS "projName"',
+        'COALESCE(MAX(TRIM(e.proj_name)), \'Sin proyecto\') AS "projName"',
         'TRIM(a.tkt_code) AS "tktCode"',
-        'b.delv_qty AS "m3"',
-        'd.price AS "unitPrice"',
-        'd.prod_descr AS "prodDescr"',
-        'a.order_date AS "orderDate"',
+        'MAX(b.delv_qty) AS "m3"',
+        'MAX(d.price) AS "unitPrice"',
+        'MAX(d.prod_descr) AS "prodDescr"',
+        'MAX(a.order_date) AS "orderDate"',
         'TRIM(a.order_code) AS "orderCode"',
       ])
       .from('tick', 'a')
@@ -69,10 +68,9 @@ export class TickService {
         { bombeo: '%bombeo%' }
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
-      // Evitar duplicados vacíos
-      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'');  
+      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
+      .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)');
 
-    // Filtrar por uno o varios proyectos
     if (projCode) {
       if (Array.isArray(projCode)) {
         const trimmedProj = projCode.map(p => p.trim());
@@ -82,28 +80,23 @@ export class TickService {
       }
     }
 
-    // Filtro por número de documento
     if (docNumber?.trim()) {
       qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
     }
 
-    if (dateFrom) {
-      qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
-    }
+    if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
+    if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
 
-    if (dateTo) {
-      qb.andWhere('a.order_date <= :dateTo', { dateTo });
-    }
+    qb.groupBy('a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code');
 
-    // Paginación
+    qb.orderBy('MAX(a.order_date)', 'ASC');
+
     if (limit > 0) {
       qb.offset((page - 1) * limit).limit(limit);
     }
 
-    // Ejecutar query principal
     const data = await qb.getRawMany();
 
-    // Conteo total sin duplicados
     const countQb = this.tickRepository.manager
       .createQueryBuilder()
       .select('COUNT(DISTINCT a.tkt_code)', 'total')
@@ -130,7 +123,8 @@ export class TickService {
         { bombeo: '%bombeo%' }
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
-      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'');  
+      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
+      .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)');
 
     if (projCode) {
       if (Array.isArray(projCode)) {
@@ -141,17 +135,9 @@ export class TickService {
       }
     }
 
-    if (docNumber?.trim()) {
-      countQb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
-    }
-
-    if (dateFrom) {
-      countQb.andWhere('a.order_date >= :dateFrom', { dateFrom });
-    }
-
-    if (dateTo) {
-      countQb.andWhere('a.order_date <= :dateTo', { dateTo });
-    }
+    if (docNumber?.trim()) countQb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
+    if (dateFrom) countQb.andWhere('a.order_date >= :dateFrom', { dateFrom });
+    if (dateTo) countQb.andWhere('a.order_date <= :dateTo', { dateTo });
 
     const { total } = await countQb.getRawOne();
 
