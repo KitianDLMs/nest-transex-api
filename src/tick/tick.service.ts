@@ -17,7 +17,7 @@ export class TickService {
   async search(filters: TickFilterDto) {
     const {
       custCode,
-      projCode,
+      projCode,      // puede ser string o string[]
       docNumber,
       dateFrom,
       dateTo,
@@ -35,40 +35,54 @@ export class TickService {
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
-        'a.tkt_code AS tkt_code',
-        'a.order_code AS order_code',
-        'a.order_date AS order_date',
-        'c.proj_code AS proj_code',
-        'c.cust_code AS cust_code',
-        'b.delv_qty AS m3',         
-        'd.price AS unit_price',  
-        'd.prod_descr AS prod_descr',
+        'DISTINCT TRIM(c.cust_code) AS "custCode"',
+        'TRIM(c.cust_name) AS "custName"',
+        'TRIM(c.proj_code) AS "projCode"',
+        'COALESCE(TRIM(e.proj_name), \'Sin proyecto\') AS "projName"',
+        'TRIM(a.tkt_code) AS "tktCode"',
+        'b.delv_qty AS "m3"',
+        'd.price AS "unitPrice"',
+        'd.prod_descr AS "prodDescr"',
+        'a.order_date AS "orderDate"',
+        'TRIM(a.order_code) AS "orderCode"',
       ])
       .from('tick', 'a')
+      .innerJoin(
+        'tktl',
+        'b',
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+      )
       .innerJoin(
         'ordr',
         'c',
         'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
       )
       .leftJoin(
-        'tktl',
-        'b',
-        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+        'proj',
+        'e',
+        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)'
       )
       .leftJoin(
         'ordl',
         'd',
-        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num'
+        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)',
+        { bombeo: '%bombeo%' }
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
-      // Excluir tickets de bombeo
-      .andWhere("d.prod_descr NOT ILIKE '%bombeo%'");
+      // Evitar duplicados vacíos
+      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'');  
 
-    // filtros opcionales
-    if (projCode?.trim()) {
-      qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+    // Filtrar por uno o varios proyectos
+    if (projCode) {
+      if (Array.isArray(projCode)) {
+        const trimmedProj = projCode.map(p => p.trim());
+        qb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
+      } else {
+        qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+      }
     }
 
+    // Filtro por número de documento
     if (docNumber?.trim()) {
       qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', { docNumber: `%${docNumber.trim()}%` });
     }
@@ -81,37 +95,50 @@ export class TickService {
       qb.andWhere('a.order_date <= :dateTo', { dateTo });
     }
 
+    // Paginación
     if (limit > 0) {
       qb.offset((page - 1) * limit).limit(limit);
     }
 
+    // Ejecutar query principal
     const data = await qb.getRawMany();
 
-    // Conteo total
+    // Conteo total sin duplicados
     const countQb = this.tickRepository.manager
       .createQueryBuilder()
-      .select('COUNT(*)', 'total')
+      .select('COUNT(DISTINCT a.tkt_code)', 'total')
       .from('tick', 'a')
+      .innerJoin(
+        'tktl',
+        'b',
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+      )
       .innerJoin(
         'ordr',
         'c',
         'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
       )
       .leftJoin(
-        'tktl',
-        'b',
-        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+        'proj',
+        'e',
+        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)'
       )
       .leftJoin(
         'ordl',
         'd',
-        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num'
+        'TRIM(c.order_code) = TRIM(d.order_code) AND DATE(c.order_date) = DATE(d.order_date) AND b.order_intrnl_line_num = d.order_intrnl_line_num AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)',
+        { bombeo: '%bombeo%' }
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
-      .andWhere("d.prod_descr NOT ILIKE '%bombeo%'"); // filtro de bombeo en el conteo también
+      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'');  
 
-    if (projCode?.trim()) {
-      countQb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+    if (projCode) {
+      if (Array.isArray(projCode)) {
+        const trimmedProj = projCode.map(p => p.trim());
+        countQb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
+      } else {
+        countQb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+      }
     }
 
     if (docNumber?.trim()) {

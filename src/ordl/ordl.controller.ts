@@ -24,12 +24,7 @@ export class OrdlController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
   ) {
-    return this.ordlService.findLinesByCustomer(
-      custCode,
-      projCode,
-      Number(page),
-      Number(limit),
-    );
+    return 'by-customer';
   }
 
   @Get('lines/byCustomer/:custCode')

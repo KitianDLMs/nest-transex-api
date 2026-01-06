@@ -25,13 +25,6 @@ export class ProjController {
     return this.projService.findByCust(cust_code);
   }
 
-  @Get('ping')
-  ping() {
-    console.log('PING PROJ');
-    return 'pong';
-  }
-
-
   @Get('options')
   getOptions() {
     return this.projService.getOptions();

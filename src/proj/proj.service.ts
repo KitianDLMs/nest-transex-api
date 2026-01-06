@@ -68,37 +68,20 @@ export class ProjService {
     return { message: 'Proyecto eliminado' };
   }
 
-async findByCust(cust_code: string) {
-  return this.projRepo.manager
-    .createQueryBuilder()
-    .select([
-      'proj_code',
-      'delv_addr AS proj_descr',
-    ])
-    .from(subQuery => {
-      return subQuery
-        .select([
-          'TRIM(o.proj_code) AS proj_code',
-          'TRIM(o.delv_addr) AS delv_addr',
-          `
-          ROW_NUMBER() OVER (
-            PARTITION BY TRIM(o.proj_code)
-            ORDER BY COUNT(*) DESC
-          ) AS rn
-          `,
-        ])
-        .from('ordr', 'o')
-        .where('TRIM(o.cust_code::text) = :cust_code', {
-          cust_code: cust_code.trim(),
-        })
-        .andWhere('o.proj_code IS NOT NULL')
-        .andWhere('o.delv_addr IS NOT NULL')
-        .groupBy('TRIM(o.proj_code), TRIM(o.delv_addr)');
-    }, 'ranked')
-    .where('ranked.rn = 1')
-    .orderBy('proj_code', 'ASC')
-    .getRawMany();
-}
+  async findByCust(cust_code: string) {
+    const cleanCustCode = cust_code.trim();
+
+    return this.projRepo.manager
+      .createQueryBuilder()
+      .select([
+        'TRIM(p.proj_code) AS projCode',
+        'TRIM(p.proj_name) AS projName',
+      ])
+      .from('proj', 'p')
+      .where('TRIM(p.cust_code) = :custCode', { custCode: cleanCustCode })
+      .orderBy('TRIM(p.proj_code)', 'ASC')
+      .getRawMany();
+  }
 
   async deleteAllProj() {
     const allProj = await this.projRepo.find();
