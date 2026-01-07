@@ -104,8 +104,8 @@ export class TickService {
     // ---------------------------------------------
     // 🔥 ORDENAMIENTO FINAL (CORRECTO)
     // ---------------------------------------------
-    qb.orderBy('MAX(a.order_date)', 'DESC') // fecha más reciente primero
-      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'DESC'); // luego número de guía
+    qb.orderBy('MAX(a.order_date)', 'ASC') // fecha más reciente primero
+      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC'); // luego número de guía
 
     // ---------------------------------------------
     // PAGINACIÓN
@@ -258,13 +258,14 @@ export class TickService {
     if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
 
-    qb.orderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'DESC');
+    // --------------------------------------------------------
+    // 🔥 ORDENAMIENTO EXACTO IGUAL A `search()` (ASC + ASC)
+    // --------------------------------------------------------
+    qb.orderBy('a.order_date', 'ASC')
+      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC');
 
     // ------------------ Obtener resultados ------------------
     const rows = await qb.getRawMany();
-
-    console.log('🔎 RAW ROW EXAMPLE:', rows[0]);
-    console.log('🔎 TOTAL ROWS:', rows.length);
 
     // ------------------ MAPEO PARA EL FRONT ------------------
     const mapped = rows.map(tick => ({
@@ -278,8 +279,6 @@ export class TickService {
       "Cantidad": tick.m3,
       "Precio Unitario": tick.unit_price
     }));
-
-    console.log('📦 MAPPED EXCEL ROW:', mapped[0]);
 
     return mapped;
   }
