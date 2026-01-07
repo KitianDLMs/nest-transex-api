@@ -101,23 +101,43 @@ export class TickController {
     @Res() res: Response
   ) {
     if (!tktCodes || tktCodes.length === 0) {
-      throw new HttpException('No hay tickets', HttpStatus.BAD_REQUEST);
+      return res.status(400).json({ message: 'No hay tickets', missing: [] });
     }
 
     const archiver = require('archiver');
     const { join } = require('path');
     const { existsSync } = require('fs');
 
-    // Limpiamos los códigos de posibles espacios
     const cleanCodes = tktCodes.map(code => code?.trim()).filter(code => code);
 
-    if (cleanCodes.length === 0) {
-      throw new HttpException('No hay tickets válidos', HttpStatus.BAD_REQUEST);
+    const basePath = join(process.cwd(), 'uploads');
+
+    const existing: string[] = [];
+    const missing: string[] = [];
+
+    for (const code of cleanCodes) {
+      const filePath = join(basePath, `${code}.pdf`);
+      if (existsSync(filePath)) existing.push(code);
+      else missing.push(code);
+    }
+
+    if (existing.length === 0) {
+      return res.status(404).json({
+        message: 'No se encontró ningún PDF',
+        missing
+      });
+    }
+
+    if (missing.length > 0) {
+      return res.status(207).json({
+        message: 'Algunos archivos no existen',
+        existing,
+        missing
+      });
     }
 
     const archive = archiver('zip', { zlib: { level: 9 } });
 
-    // Configuramos headers para descargar
     res.set({
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename=documentos_${Date.now()}.zip`,
@@ -125,24 +145,9 @@ export class TickController {
 
     archive.pipe(res);
 
-    const basePath = join(process.cwd(), 'uploads');
-
-    let filesAdded = 0;
-
-    for (const code of cleanCodes) {
+    for (const code of existing) {
       const filePath = join(basePath, `${code}.pdf`);
-
-      if (existsSync(filePath)) {
-        archive.file(filePath, { name: `${code}.pdf` });
-        filesAdded++;
-      } else {
-        console.warn(`Archivo no encontrado en producción: ${filePath}`);
-      }
-    }
-
-    if (filesAdded === 0) {
-      res.status(404).json({ message: 'No se encontraron archivos PDF para los tickets enviados.' });
-      return;
+      archive.file(filePath, { name: `${code}.pdf` });
     }
 
     await archive.finalize();
