@@ -31,6 +31,9 @@ export class TickService {
 
     const cleanCustCode = custCode.trim();
 
+    // ---------------------------------------------
+    // QUERY PRINCIPAL
+    // ---------------------------------------------
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
@@ -75,6 +78,9 @@ export class TickService {
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
       .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')');
 
+    // ---------------------------------------------
+    // FILTROS
+    // ---------------------------------------------
     if (projCode) {
       if (Array.isArray(projCode)) {
         const trimmedProj = projCode.map(p => p.trim());
@@ -95,14 +101,22 @@ export class TickService {
 
     qb.groupBy('a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code');
 
-    // 🔥 ORDENAMIENTO FINAL POR GUÍA DESC
-    qb.orderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'DESC');
+    // ---------------------------------------------
+    // 🔥 ORDENAMIENTO FINAL (CORRECTO)
+    // ---------------------------------------------
+    qb.orderBy('MAX(a.order_date)', 'DESC') // fecha más reciente primero
+      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'DESC'); // luego número de guía
 
+    // ---------------------------------------------
+    // PAGINACIÓN
+    // ---------------------------------------------
     if (limit > 0) qb.offset((page - 1) * limit).limit(limit);
 
     const data = await qb.getRawMany();
 
-    // -------------- COUNT QUERY --------------
+    // ---------------------------------------------
+    // COUNT QUERY
+    // ---------------------------------------------
     const countQb = this.tickRepository.manager
       .createQueryBuilder()
       .select('COUNT(DISTINCT a.tkt_code)', 'total')
@@ -145,10 +159,11 @@ export class TickService {
       }
     }
 
-    if (docNumber?.trim())
+    if (docNumber?.trim()) {
       countQb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
         docNumber: `%${docNumber.trim()}%`,
       });
+    }
 
     if (dateFrom) countQb.andWhere('a.order_date >= :dateFrom', { dateFrom });
     if (dateTo) countQb.andWhere('a.order_date <= :dateTo', { dateTo });
