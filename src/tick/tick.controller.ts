@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as archiver from 'archiver';
 import { TickFilterDto } from './dto/tick-filter.dto';
 import { DownloadZipDto } from './dto/download-zip.dto';
+import { tmpdir } from 'os';
 
 @Controller('tick')
 export class TickController {
@@ -19,6 +20,61 @@ export class TickController {
   @Get('search')
   async search(@Query() filters: TickFilterDto) {
     return this.tickService.search(filters);
+  }
+
+  @Post('download-zip')
+  async downloadZip(
+    @Body() body: DownloadZipDto,
+    @Res() res: Response
+  ) {
+    const basePath = join(process.cwd(), 'uploads');
+    const tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c);
+    
+    if (!tktCodes || tktCodes.length === 0) {
+      return res.status(400).json({ message: 'No hay tickets', missing: [] });
+    }
+
+    const existing: string[] = [];
+    const missing: string[] = [];
+
+    for (const code of tktCodes) {
+      const filePath = join(basePath, `${code}.pdf`);
+      if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
+        existing.push(code);
+      } else {
+        missing.push(code);
+      }
+    }
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'No se encontró ningún PDF válido', missing });
+    }
+
+    // Si hay tickets existentes, generamos el ZIP
+    const zipName = `documentos_${Date.now()}.zip`;
+    const tmpPath = join(tmpdir(), zipName);
+
+    const output = fs.createWriteStream(tmpPath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.pipe(output);
+
+    existing.forEach(code => {
+      const filePath = join(basePath, `${code}.pdf`);
+      archive.file(filePath, { name: `${code}.pdf` });
+    });
+
+    archive.finalize();
+
+    output.on('close', () => {
+      // Si hay tickets faltantes, devolvemos info junto con el ZIP
+      if (missing.length > 0) {
+        res.setHeader('X-Missing-Files', missing.join(','));
+      }
+      res.download(tmpPath, zipName, (err) => {
+        if (err) console.error(err);
+        fs.unlinkSync(tmpPath);
+      });
+    });
   }
 
   // @Post('with-file')
@@ -96,81 +152,25 @@ export class TickController {
     return this.tickService.searchForExcel(filters);
   }
 
-  @Post('download-zip')
-  async downloadZip(
-    @Body() body: DownloadZipDto,
-    @Res() res: Response
-  ) {
-    const fs = require('fs');
-    const archiver = require('archiver');
-    const { join } = require('path');
-    const { tmpdir } = require('os');
+  @Post('all-codes')
+  async getAllTickCodes(@Body() filters: TickFilterDto) {
+    const codes = await this.tickService.searchAllCodes(filters);
+    return codes;
+  }
 
-    const basePath = join(process.cwd(), 'uploads');
-    const tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c);
-    if (!tktCodes || tktCodes.length === 0) {
-      return res.status(400).json({ message: 'No hay tickets', missing: [] });
+  @Post('check-tkt-codes')
+  async checkTktCodesByArray(@Body() body: { tktCodes: string[] }) {
+    const tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c) || [];
+
+    if (tktCodes.length === 0) {
+      return { existing: [], missing: [] };
     }
 
+    const basePath = join(process.cwd(), 'uploads');
     const existing: string[] = [];
     const missing: string[] = [];
 
     for (const code of tktCodes) {
-      const filePath = join(basePath, `${code}.pdf`);
-      if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
-        existing.push(code);
-      } else {
-        missing.push(code);
-      }
-    }
-
-    if (existing.length === 0) {
-      return res.status(404).json({ message: 'No se encontró ningún PDF válido', missing });
-    }
-
-    // Nombre del ZIP
-    const zipName = `documentos_${Date.now()}.zip`;
-    const tmpPath = join(tmpdir(), zipName);
-
-    // Crear ZIP en disco
-    const output = fs.createWriteStream(tmpPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    archive.pipe(output);
-
-    // Agregar PDFs existentes
-    existing.forEach(code => {
-      const filePath = join(basePath, `${code}.pdf`);
-      archive.file(filePath, { name: `${code}.pdf` });
-    });
-
-    // (Opcional) agregar missing.txt dentro del ZIP
-    if (missing.length > 0) {
-      archive.append(missing.join('\n'), { name: 'missing.txt' });
-    }
-
-    archive.finalize();
-
-    // Cuando termine de generar el ZIP, enviarlo
-    output.on('close', () => {
-      res.download(tmpPath, zipName, (err) => {
-        if (err) console.error(err);
-        // borrar archivo temporal después de enviarlo
-        fs.unlinkSync(tmpPath);
-      });
-    });
-  }
-
-  @Post('check-tkt-codes')
-  async checkTktCodes(@Body() filters: TickFilterDto) {
-    const tktCodes = await this.tickService.searchAllCodes(filters);
-
-    const basePath = join(process.cwd(), 'uploads');
-    const existing: string[] = [];
-    const missing: string[] = [];
-
-    const cleanCodes = tktCodes.map(code => code?.trim()).filter(code => code);
-
-    for (const code of cleanCodes) {
       const filePath = join(basePath, `${code}.pdf`);
       if (existsSync(filePath)) existing.push(code);
       else missing.push(code);
