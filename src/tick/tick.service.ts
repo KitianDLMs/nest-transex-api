@@ -283,6 +283,89 @@ export class TickService {
     return mapped;
   }
 
+  async searchAllCodes(filters: TickFilterDto) {
+    const {
+      custCode,
+      projCode,
+      docNumber,
+      dateFrom,
+      dateTo
+    } = filters;
+
+    if (!custCode?.trim()) {
+      throw new BadRequestException('custCode es obligatorio');
+    }
+
+    const cleanCustCode = custCode.trim();
+
+    const qb = this.tickRepository.manager
+      .createQueryBuilder()
+      .select('TRIM(a.tkt_code)', 'tktCode')
+      .from('tick', 'a')
+      .innerJoin(
+        'tktl',
+        'b',
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+      )
+      .innerJoin(
+        'ordr',
+        'c',
+        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
+      )
+      .leftJoin(
+        'proj',
+        'e',
+        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)'
+      )
+      .leftJoin(
+        'ordl',
+        'd',
+        `TRIM(c.order_code) = TRIM(d.order_code)
+          AND DATE(c.order_date) = DATE(d.order_date)
+          AND b.order_intrnl_line_num = d.order_intrnl_line_num
+          AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
+        { bombeo: '%bombeo%' }
+      )
+      .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
+      .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
+      .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
+      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')');
+
+    // ---------------------------------------------
+    // FILTROS exactamente igual que en search()
+    // ---------------------------------------------
+    if (projCode) {
+      if (Array.isArray(projCode)) {
+        const trimmedProj = projCode.map(p => p.trim());
+        qb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
+      } else {
+        qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
+      }
+    }
+
+    if (docNumber?.trim()) {
+      qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
+        docNumber: `%${docNumber.trim()}%`,
+      });
+    }
+
+    if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
+    if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
+
+    // ---------------------------------------------
+    // GROUP BY y ORDER BY igual que en search()
+    // ---------------------------------------------
+    qb.groupBy('a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code');
+
+    qb.orderBy('MAX(a.order_date)', 'ASC')
+      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC');
+
+    // ❌ NO PAGINACIÓN
+    const rows = await qb.getRawMany();
+
+    return rows.map(r => r.tktCode);
+  }
+
   async create(dto: CreateTickDto, file?: Express.Multer.File) {
     const savedTick = await this.tickRepository.save(
       this.tickRepository.create(dto)
@@ -301,6 +384,18 @@ export class TickService {
       await fs.rename(tmpPath, finalPath);
     }
     return savedTick;
+  }
+
+  async getAllCodes(custCode: string) {
+    const rows = await this.tickRepository.find({
+      where: { cust_code: custCode },
+      select: { tkt_code: true },
+      order: { tkt_code: 'ASC' }
+    });
+
+    return rows
+      .map(r => r.tkt_code)
+      .filter(code => code && code.trim() !== '');
   }
 
   async addDocument(order_date: string, order_code: string, tkt_code: string, file: Express.Multer.File) {
