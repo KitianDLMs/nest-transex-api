@@ -1,8 +1,11 @@
 import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res, Query, HttpException, HttpStatus, NotFoundException, BadRequestException, UseGuards, Req } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TickService } from './tick.service';
 import { CreateTickDto } from './dto/create-tick.dto';
 import { UpdateTickDto } from './dto/update-tick.dto';
+// import { tickFileOptions } from './tick.multer.config';
 import { join, resolve } from 'path';
+import { existsSync } from 'fs';
 import { Response } from 'express';
 import * as fs from 'fs';
 import * as archiver from 'archiver';
@@ -10,18 +13,11 @@ import { TickFilterDto } from './dto/tick-filter.dto';
 import { DownloadZipDto } from './dto/download-zip.dto';
 import { tmpdir } from 'os';
 import { AuthGuard } from '@nestjs/passport';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Tick } from './entities';
-import { In, Repository } from 'typeorm';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('tick')
 export class TickController {
-  constructor(
-    private readonly tickService: TickService,
-    @InjectRepository(Tick)
-    private tickRepository: Repository<Tick>
-  ) {}
+  constructor(private readonly tickService: TickService) {}
 
   @Get('search')
   async search(@Query() filters: TickFilterDto, @Req() req) {
@@ -31,43 +27,19 @@ export class TickController {
   @Post('download-zip')
   async downloadZip(
     @Body() body: DownloadZipDto,
-    @Req() req: any,      
     @Res() res: Response
   ) {
-    const user = req.user;
-    if (!user?.projects || user.projects.length === 0) {
-      return res.status(403).json({ message: 'El usuario no tiene proyectos asignados' });
-    }
-
     const basePath = join(process.cwd(), 'uploads');
-    let tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c);
-
+    const tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c);
+    
     if (!tktCodes || tktCodes.length === 0) {
       return res.status(400).json({ message: 'No hay tickets', missing: [] });
-    }
-
-    const tickets = await this.tickRepository.find({
-      where: {
-        tkt_code: In(tktCodes),
-      },
-      select: ['tkt_code', 'project_code'],
-    });
-
-    const allowedTktCodes = tickets
-      .filter(t => t.project_code && user.projects.includes(t.project_code.trim()))
-      .map(t => t.tkt_code);
-
-    if (allowedTktCodes.length === 0) {
-      return res.status(403).json({
-        message: 'No hay tickets disponibles para este usuario',
-        missing: tktCodes
-      });
     }
 
     const existing: string[] = [];
     const missing: string[] = [];
 
-    for (const code of allowedTktCodes) {
+    for (const code of tktCodes) {
       const filePath = join(basePath, `${code}.pdf`);
       if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
         existing.push(code);
@@ -80,6 +52,7 @@ export class TickController {
       return res.status(404).json({ message: 'No se encontró ningún PDF válido', missing });
     }
 
+    // Si hay tickets existentes, generamos el ZIP
     const zipName = `documentos_${Date.now()}.zip`;
     const tmpPath = join(tmpdir(), zipName);
 
@@ -95,6 +68,7 @@ export class TickController {
     archive.finalize();
 
     output.on('close', () => {
+      // Si hay tickets faltantes, devolvemos info junto con el ZIP
       if (missing.length > 0) {
         res.setHeader('X-Missing-Files', missing.join(','));
       }
@@ -181,50 +155,30 @@ export class TickController {
   }
 
   @Post('all-codes')
-  async getAllTickCodes(@Body() filters: TickFilterDto) {
-    const codes = await this.tickService.searchAllCodes(filters);
+  async getAllTickCodes(@Body() filters: TickFilterDto, @Req() req) {
+    const codes = await this.tickService.searchAllCodes(filters, req.user);
     return codes;
   }
 
   @Post('check-tkt-codes')
-  async checkTktCodesByArray(
-    @Body() body: { tktCodes: string[] },
-    @Req() req: any
-  ) {
-    const user = req.user;
-
-    if (!user?.projects || user.projects.length === 0) {
-      return { existing: [], missing: body.tktCodes || [] };
-    }
-
+  async checkTktCodesByArray(@Body() body: { tktCodes: string[] }) {
     const tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c) || [];
+
     if (tktCodes.length === 0) {
       return { existing: [], missing: [] };
     }
-
-    const tickets = await this.tickRepository
-      .createQueryBuilder('tick')
-      .select(['tick.tkt_code', 'ordr.proj_code'])
-      .innerJoin('ordr', 'ordr', 'tick.order_code = ordr.order_code AND tick.order_date = ordr.order_date')
-      .where('tick.tkt_code IN (:...tktCodes)', { tktCodes })
-      .andWhere('ordr.proj_code IN (:...userProjects)', { userProjects: user.projects })
-      .getRawMany();
-
-    const allowedTktCodes = tickets.map(t => t.tick_tkt_code);
 
     const basePath = join(process.cwd(), 'uploads');
     const existing: string[] = [];
     const missing: string[] = [];
 
-    for (const code of allowedTktCodes) {
+    for (const code of tktCodes) {
       const filePath = join(basePath, `${code}.pdf`);
-      if (fs.existsSync(filePath)) existing.push(code);
+      if (existsSync(filePath)) existing.push(code);
       else missing.push(code);
     }
 
-    const notAllowed = tktCodes.filter(c => !allowedTktCodes.includes(c));
-
-    return { existing, missing: [...missing, ...notAllowed] };
+    return { existing, missing };
   }
 
   @Get(':order_date/:order_code/:tkt_code')

@@ -311,7 +311,7 @@ export class TickService {
     return mapped;
   }
 
-  async searchAllCodes(filters: TickFilterDto) {
+ async searchAllCodes(filters: TickFilterDto, user: any) {
     const {
       custCode,
       projCode,
@@ -324,7 +324,25 @@ export class TickService {
       throw new BadRequestException('custCode es obligatorio');
     }
 
+    if (!user || !user.projects || user.projects.length === 0) {
+      throw new ForbiddenException('El usuario no tiene proyectos asignados');
+    }
+
     const cleanCustCode = custCode.trim();
+
+    let allowedProjects = [...user.projects];
+
+    if (projCode) {
+      const requestedProj = Array.isArray(projCode)
+        ? projCode.map(p => p.trim())
+        : [projCode.trim()];
+
+      allowedProjects = requestedProj.filter(p => user.projects.includes(p));
+
+      if (allowedProjects.length === 0) {
+        return [];
+      }
+    }
 
     const qb = this.tickRepository.manager
       .createQueryBuilder()
@@ -357,19 +375,8 @@ export class TickService {
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
-      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')');
-
-    // ---------------------------------------------
-    // FILTROS exactamente igual que en search()
-    // ---------------------------------------------
-    if (projCode) {
-      if (Array.isArray(projCode)) {
-        const trimmedProj = projCode.map(p => p.trim());
-        qb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
-      } else {
-        qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
-      }
-    }
+      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', { allowedProjects });
 
     if (docNumber?.trim()) {
       qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
@@ -380,15 +387,10 @@ export class TickService {
     if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
 
-    // ---------------------------------------------
-    // GROUP BY y ORDER BY igual que en search()
-    // ---------------------------------------------
-    qb.groupBy('a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code');
-
-    qb.orderBy('MAX(a.order_date)', 'ASC')
+    qb.groupBy('a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code')
+      .orderBy('MAX(a.order_date)', 'ASC')
       .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC');
 
-    // ❌ NO PAGINACIÓN
     const rows = await qb.getRawMany();
 
     return rows.map(r => r.tktCode);
