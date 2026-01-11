@@ -35,4 +35,6 @@ export class TickFilterDto {
   @Type(() => Number)
   @IsInt()
   limit?: number = 20;
+
+   allowedProjects?: number[];  
 }

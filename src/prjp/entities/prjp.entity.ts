@@ -278,7 +278,4 @@ export class Prjp {
 
   @Column({ type: 'varchar', nullable: true })
   cd_sundry_chrg_sep_invc_flags: string;
-
-  @ManyToOne(() => Proj, (project) => project.projectDetails, { onDelete: 'CASCADE' })
-  project: Proj;
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateTickDto } from './dto/create-tick.dto';
@@ -14,7 +14,7 @@ export class TickService {
     private readonly tickRepository: Repository<Tick>,    
   ) {}
 
-  async search(filters: TickFilterDto) {
+  async search(filters: TickFilterDto, user: any) {
     const {
       custCode,
       projCode,
@@ -29,11 +29,35 @@ export class TickService {
       throw new BadRequestException('custCode es obligatorio');
     }
 
+    if (!user.projects || user.projects.length === 0) {
+      throw new ForbiddenException('El usuario no tiene proyectos asignados');
+    }
+
     const cleanCustCode = custCode.trim();
 
-    // ---------------------------------------------
-    // QUERY PRINCIPAL
-    // ---------------------------------------------
+    let allowedProjects = [...user.projects];
+
+    if (projCode) {
+      const requestedProj = Array.isArray(projCode)
+        ? projCode.map(p => p.trim())
+        : [projCode.trim()];
+
+
+      allowedProjects = requestedProj.filter(p =>
+        user.projects.includes(p),
+      );
+
+      if (allowedProjects.length === 0) {
+        return {
+          data: [],
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        };
+      }
+    }
+
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
@@ -52,17 +76,17 @@ export class TickService {
       .innerJoin(
         'tktl',
         'b',
-        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)',
       )
       .innerJoin(
         'ordr',
         'c',
-        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
+        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)',
       )
       .leftJoin(
         'proj',
         'e',
-        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)'
+        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)',
       )
       .leftJoin(
         'ordl',
@@ -71,24 +95,15 @@ export class TickService {
           AND DATE(c.order_date) = DATE(d.order_date)
           AND b.order_intrnl_line_num = d.order_intrnl_line_num
           AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
-        { bombeo: '%bombeo%' }
+        { bombeo: '%bombeo%' },
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
-      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')');
-
-    // ---------------------------------------------
-    // FILTROS
-    // ---------------------------------------------
-    if (projCode) {
-      if (Array.isArray(projCode)) {
-        const trimmedProj = projCode.map(p => p.trim());
-        qb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
-      } else {
-        qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
-      }
-    }
+      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', {
+        allowedProjects,
+      });
 
     if (docNumber?.trim()) {
       qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
@@ -99,24 +114,19 @@ export class TickService {
     if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
 
-    qb.groupBy('a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code');
+    qb.groupBy(
+      'a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code',
+    );
 
-    // ---------------------------------------------
-    // 🔥 ORDENAMIENTO FINAL (CORRECTO)
-    // ---------------------------------------------
-    qb.orderBy('MAX(a.order_date)', 'ASC') // fecha más reciente primero
-      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC'); // luego número de guía
+    qb.orderBy('MAX(a.order_date)', 'ASC').addOrderBy(
+      'CAST(TRIM(a.tkt_code) AS BIGINT)',
+      'ASC',
+    );
 
-    // ---------------------------------------------
-    // PAGINACIÓN
-    // ---------------------------------------------
     if (limit > 0) qb.offset((page - 1) * limit).limit(limit);
 
     const data = await qb.getRawMany();
 
-    // ---------------------------------------------
-    // COUNT QUERY
-    // ---------------------------------------------
     const countQb = this.tickRepository.manager
       .createQueryBuilder()
       .select('COUNT(DISTINCT a.tkt_code)', 'total')
@@ -124,17 +134,17 @@ export class TickService {
       .innerJoin(
         'tktl',
         'b',
-        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)'
+        'TRIM(a.tkt_code) = TRIM(b.tkt_code) AND TRIM(a.order_code) = TRIM(b.order_code) AND DATE(a.order_date) = DATE(b.order_date)',
       )
       .innerJoin(
         'ordr',
         'c',
-        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
+        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)',
       )
       .leftJoin(
         'proj',
         'e',
-        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)'
+        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)',
       )
       .leftJoin(
         'ordl',
@@ -143,21 +153,15 @@ export class TickService {
           AND DATE(c.order_date) = DATE(d.order_date)
           AND b.order_intrnl_line_num = d.order_intrnl_line_num
           AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
-        { bombeo: '%bombeo%' }
+        { bombeo: '%bombeo%' },
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
-      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')');
-
-    if (projCode) {
-      if (Array.isArray(projCode)) {
-        const trimmedProj = projCode.map(p => p.trim());
-        countQb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
-      } else {
-        countQb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
-      }
-    }
+      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', {
+        allowedProjects,
+      });
 
     if (docNumber?.trim()) {
       countQb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
@@ -179,15 +183,44 @@ export class TickService {
     };
   }
 
-  async searchForExcel(filters: TickFilterDto) {
+  async searchForExcel(filters: TickFilterDto, user: any) {
     const { custCode, projCode, docNumber, dateFrom, dateTo } = filters;
 
     if (!custCode?.trim()) {
       throw new BadRequestException('custCode es obligatorio');
     }
 
+    if (!user.projects || user.projects.length === 0) {
+      throw new ForbiddenException('El usuario no tiene proyectos asignados');
+    }
+
     const cleanCustCode = custCode.trim();
 
+    // -------------------------------------------------
+    // DETERMINAR PROYECTOS QUE REALMENTE SE PODRÁN VER
+    // -------------------------------------------------
+    let allowedProjects = [...user.projects];
+
+    if (projCode) {
+      const requestedProj = Array.isArray(projCode)
+        ? projCode.map(p => p.trim())
+        : [projCode.trim()];
+
+      // Intersección entre usuario y filtro
+      allowedProjects = requestedProj.filter(p =>
+        user.projects.includes(p),
+      );
+
+      if (allowedProjects.length === 0) {
+        return [];
+      }
+    }
+
+    const cleanedAllowed = allowedProjects.map(p => p.trim());
+
+    // ---------------------------------------------
+    // QUERY PRINCIPAL
+    // ---------------------------------------------
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
@@ -221,34 +254,31 @@ export class TickService {
         'tktl',
         'b',
         `TRIM(a.tkt_code) = TRIM(b.tkt_code)
-        AND TRIM(a.order_code) = TRIM(b.order_code)
-        AND DATE(a.order_date) = DATE(b.order_date)`
+          AND TRIM(a.order_code) = TRIM(b.order_code)
+          AND DATE(a.order_date) = DATE(b.order_date)`
       )
       .leftJoin(
         'ordl',
         'd',
         `TRIM(c.order_code) = TRIM(d.order_code)
-        AND DATE(c.order_date) = DATE(d.order_date)
-        AND b.order_intrnl_line_num = d.order_intrnl_line_num
-        AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
+          AND DATE(c.order_date) = DATE(d.order_date)
+          AND b.order_intrnl_line_num = d.order_intrnl_line_num
+          AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
         { bombeo: '%bombeo%' }
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
       .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
-      .andWhere('b.delv_qty::numeric > 0');
+      .andWhere('b.delv_qty::numeric > 0')
+      // 🔥 Filtro OBLIGATORIO por proyectos del usuario
+      .andWhere('TRIM(c.proj_code) IN (:...cleanedAllowed)', {
+        cleanedAllowed,
+      });
 
-    // ------------------ Filtros opcionales ------------------
-    if (projCode) {
-      if (Array.isArray(projCode)) {
-        const trimmedProj = projCode.map(p => p.trim());
-        qb.andWhere('TRIM(c.proj_code) IN (:...projCode)', { projCode: trimmedProj });
-      } else {
-        qb.andWhere('TRIM(c.proj_code) = :projCode', { projCode: projCode.trim() });
-      }
-    }
-
+    // ---------------------------------------------
+    // FILTROS OPCIONALES
+    // ---------------------------------------------
     if (docNumber?.trim()) {
       qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
         docNumber: `%${docNumber.trim()}%`
@@ -258,16 +288,14 @@ export class TickService {
     if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
 
-    // --------------------------------------------------------
-    // 🔥 ORDENAMIENTO EXACTO IGUAL A `search()` (ASC + ASC)
-    // --------------------------------------------------------
     qb.orderBy('a.order_date', 'ASC')
       .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC');
 
-    // ------------------ Obtener resultados ------------------
     const rows = await qb.getRawMany();
 
-    // ------------------ MAPEO PARA EL FRONT ------------------
+    // ---------------------------------------------
+    // MAPEADO EXACTO PARA EL FRONT / EXCEL
+    // ---------------------------------------------
     const mapped = rows.map(tick => ({
       Fecha: new Date(tick.order_date).toLocaleDateString('es-CL'),
       "Guía": tick.tkt_code,

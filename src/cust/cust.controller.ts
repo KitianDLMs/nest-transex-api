@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
 import { CustService } from './cust.service';
 import { CreateCustDto } from './dto/create-cust.dto';
 import { UpdateCustDto } from './dto/update-cust.dto';
@@ -22,7 +22,11 @@ export class CustController {
     return this.custService.findOne(code.trim());
   }
 
-  // 🔹 Nuevo endpoint: obtener órdenes de un cliente
+  @Get('search')
+  async search(@Query('q') query: string) {
+    return this.custService.searchCusts(query);
+  }
+  
   @Get(':cust_code/orders')
   getOrders(@Param('cust_code') cust_code: string) {
     return this.custService.getOrdersByCustomer(cust_code);

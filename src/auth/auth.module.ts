@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from './entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { Proj } from 'src/proj/entities/proj.entity';
 
 @Module({
   controllers: [AuthController],
@@ -15,7 +16,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     ConfigModule,
 
-    TypeOrmModule.forFeature([ User ]),
+    TypeOrmModule.forFeature([ User, Proj]),
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
 

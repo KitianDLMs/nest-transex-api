@@ -1,7 +1,4 @@
 import { User } from 'src/auth/entities/user.entity';
-import { Cust } from 'src/cust/entities/cust.entity';
-import { Ordr } from 'src/ordr/entities/ordr.entity';
-import { Prjp } from 'src/prjp/entities/prjp.entity';
 import { Entity, Column, PrimaryColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 
 @Entity('proj')
@@ -760,11 +757,8 @@ export class Proj {
 
   @Column({ type: 'text', nullable: true })
   cd_sundry_chrg_sep_invc_flags: string;
-
-  @OneToMany(() => Prjp, prjp => prjp.project)
-  projectDetails: Prjp[];
-
-  // @ManyToOne(() => User, (user) => user.projs, { nullable: true })
-  // @JoinColumn({ name: 'user_id' })
-  // user: User;
+  
+  @ManyToOne(() => User, user => user.projects)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 }

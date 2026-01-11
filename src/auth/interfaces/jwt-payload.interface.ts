@@ -1,7 +1,9 @@
+import { ValidRoles } from "./valid-roles";
 
 
 export interface JwtPayload {
-    id: string;
-
-    // TODO: añadir todo lo que quieran grabar.
+    id: string
+    email: string;
+    roles: string[];
+    fullName: string;
 }

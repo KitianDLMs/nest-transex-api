@@ -1,4 +1,4 @@
-import { BeforeInsert, BeforeUpdate, Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
+import { BeforeInsert, BeforeUpdate, Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 import { Product } from '../../products/entities/product.entity';
 import { Obra } from 'src/obras/entities/obra.entity';
 import { Proj } from 'src/proj/entities/proj.entity';
@@ -35,8 +35,8 @@ export class User {
   @OneToMany(() => Obra, (obra) => obra.user)
   obras: Obra[];
 
-  // @OneToMany(() => Proj, proj => proj.user)
-  // projs: Proj[];
+  @Column("text", { array: true, nullable: true })
+  projects: string[];
 
   @OneToMany(() => Ordr, ordr => ordr.user)
   ordrs: Ordr[];

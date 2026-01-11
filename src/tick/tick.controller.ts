@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res, Query, HttpException, HttpStatus, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Patch, Delete, UseInterceptors, UploadedFile, Res, Query, HttpException, HttpStatus, NotFoundException, BadRequestException, UseGuards, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TickService } from './tick.service';
 import { CreateTickDto } from './dto/create-tick.dto';
@@ -12,14 +12,16 @@ import * as archiver from 'archiver';
 import { TickFilterDto } from './dto/tick-filter.dto';
 import { DownloadZipDto } from './dto/download-zip.dto';
 import { tmpdir } from 'os';
+import { AuthGuard } from '@nestjs/passport';
 
+@UseGuards(AuthGuard('jwt'))
 @Controller('tick')
 export class TickController {
   constructor(private readonly tickService: TickService) {}
 
   @Get('search')
-  async search(@Query() filters: TickFilterDto) {
-    return this.tickService.search(filters);
+  async search(@Query() filters: TickFilterDto, @Req() req) {
+    return this.tickService.search(filters, req.user);
   }
 
   @Post('download-zip')
@@ -148,8 +150,8 @@ export class TickController {
   }
 
   @Get('export/excel')
-  async exportExcel(@Query() filters: TickFilterDto) {
-    return this.tickService.searchForExcel(filters);
+  async exportExcel(@Query() filters: TickFilterDto, @Req() req) {
+    return this.tickService.searchForExcel(filters, req.user);
   }
 
   @Post('all-codes')

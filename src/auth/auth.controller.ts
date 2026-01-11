@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Headers, SetMetadata, Put, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Headers, SetMetadata, Put, Param, Query, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 
@@ -18,6 +18,14 @@ import { ValidRoles } from './interfaces';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('paginated')
+  getUsersPaginated(
+    @Query('page', ParseIntPipe) page: number = 1,
+    @Query('limit', ParseIntPipe) limit: number = 10,
+  ) {
+    return this.authService.getPaginatedUsers(page, limit);
+  }
+
   @Get('users')
   @Auth( ValidRoles.admin )
   getAllUsers() {
@@ -25,13 +33,12 @@ export class AuthController {
   }
 
   @Get('users/:id')
-  @Auth(ValidRoles.admin)
+  // @Auth(ValidRoles.admin)
   getUserById(@Param('id') id: string) {
     return this.authService.getUserById(id);
   }
 
   @Put('users/:id')
-  @Auth( ValidRoles.admin )
   updateUser(
     @Param('id') id: string,
     @Body() body: any

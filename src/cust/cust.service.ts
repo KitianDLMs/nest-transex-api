@@ -76,4 +76,12 @@ export class CustService {
       .execute();
   }
 
+  async searchCusts(term: string): Promise<Cust[]> {
+    if (!term) return [];
+    
+    return this.custRepository.createQueryBuilder('cust')
+      .where('cust.name ILIKE :term', { term: `%${term}%` })
+      .limit(50)
+      .getMany();
+  }
 }

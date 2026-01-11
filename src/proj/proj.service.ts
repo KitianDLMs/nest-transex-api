@@ -70,7 +70,7 @@ export class ProjService {
 
   async findByCust(cust_code: string) {
     const cleanCustCode = cust_code.trim();
-
+    
     return this.projRepo.manager
       .createQueryBuilder()
       .select([
@@ -79,7 +79,7 @@ export class ProjService {
       ])
       .from('proj', 'p')
       .where('TRIM(p.cust_code) = :custCode', { custCode: cleanCustCode })
-      .orderBy('TRIM(p.proj_code)', 'ASC')
+      .orderBy('TRIM(p.proj_code)', 'ASC')      
       .getRawMany();
   }
 
