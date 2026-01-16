@@ -47,6 +47,9 @@ export class User {
   @ManyToOne(() => Cust, cust => cust.users, { eager: true })
   cust: Cust;
 
+  @Column('text', { array: true, nullable: true })
+  cust_codes: string[];
+
   @BeforeInsert()
   checkFieldsBeforeInsert() {
     this.email = this.email.toLowerCase().trim();

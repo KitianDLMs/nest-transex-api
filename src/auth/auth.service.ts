@@ -28,8 +28,7 @@ export class AuthService {
   async getUserById(id: string) {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: ['id', 'fullName', 'email', 'roles', 'cust_code', 'isActive', 'projects'], 
-      // suponiendo que 'projects' es el array de códigos
+      select: ['id', 'fullName', 'email', 'roles', 'cust_code', 'cust_codes', 'isActive', 'projects'],
     });
 
     if (!user) throw new NotFoundException(`User not found`);
@@ -92,34 +91,55 @@ export class AuthService {
     return await this.userRepository.save(user);
   }
 
-  async create( createUserDto: CreateUserDto) {
-    
-    try {
+  async create(createUserDto: CreateUserDto) {
+  try {
 
-      const { password, ...userData } = createUserDto;
-      
-      const user = this.userRepository.create({
-        ...userData,
-        password: bcrypt.hashSync( password, 10 )
-      });
+    const { password, roles, cust_code, cust_codes, ...rest } = createUserDto;
 
-      await this.userRepository.save( user )
-      delete user.password;
+    // --- VALIDACIONES POR ROL -----
 
-      return {
-        user: user,
-        token: this.getJwtToken({ 
-          id: user.id,     
-          email: user.email,
-          roles: user.roles,
-          fullName: user.fullName })
-        };
-
-    } catch (error) {
-      this.handleDBErrors(error);
+    if (roles.includes('user')) {
+      if (!cust_code || cust_code.trim().length === 0) {
+        throw new BadRequestException('cust_code is required for role user');
+      }
     }
 
+    if (roles.includes('super-user')) {
+      if (!cust_codes || !Array.isArray(cust_codes) || cust_codes.length === 0) {
+        throw new BadRequestException('cust_codes is required for role super-user');
+      }
+    }
+
+    // admin no tiene validaciones adicionales
+
+    // --- CREACIÓN DEL USUARIO -----
+
+    const user = this.userRepository.create({
+      ...rest,
+      roles,
+      cust_code: roles.includes('user') ? cust_code : null,
+      cust_codes: roles.includes('super-user') ? cust_codes : null,
+      password: bcrypt.hashSync(password, 10),
+    });
+
+    await this.userRepository.save(user);
+    delete user.password;
+
+    return {
+      user,
+      token: this.getJwtToken({
+        id: user.id,
+        email: user.email,
+        roles: user.roles,
+        fullName: user.fullName,
+      }),
+    };
+
+  } catch (error) {
+    this.handleDBErrors(error);
   }
+}
+
 
   async login( loginUserDto: LoginUserDto ) {
 

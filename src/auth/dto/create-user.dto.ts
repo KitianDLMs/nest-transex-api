@@ -29,9 +29,16 @@ export class CreateUserDto {
   @MinLength(1)
   fullName: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
   cust_code: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  cust_codes?: string[];
 
   @IsOptional()
   @IsArray()

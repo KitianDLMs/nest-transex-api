@@ -42,7 +42,6 @@ export class TickService {
         ? projCode.map(p => p.trim())
         : [projCode.trim()];
 
-
       allowedProjects = requestedProj.filter(p =>
         user.projects.includes(p),
       );
@@ -56,6 +55,13 @@ export class TickService {
           totalPages: 0,
         };
       }
+    }
+
+    let dateToEnd: Date | null = null;
+
+    if (dateTo) {
+      dateToEnd = new Date(dateTo);
+      dateToEnd.setDate(dateToEnd.getDate() + 1);
     }
 
     const qb = this.tickRepository.manager
@@ -112,7 +118,7 @@ export class TickService {
     }
 
     if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
-    if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
+    if (dateToEnd) qb.andWhere('a.order_date < :dateToEnd', { dateToEnd });
 
     qb.groupBy(
       'a.tkt_code, a.order_code, c.cust_code, c.cust_name, c.proj_code',
@@ -170,7 +176,7 @@ export class TickService {
     }
 
     if (dateFrom) countQb.andWhere('a.order_date >= :dateFrom', { dateFrom });
-    if (dateTo) countQb.andWhere('a.order_date <= :dateTo', { dateTo });
+    if (dateToEnd) countQb.andWhere('a.order_date < :dateToEnd', { dateToEnd });
 
     const { total } = await countQb.getRawOne();
 
@@ -196,9 +202,6 @@ export class TickService {
 
     const cleanCustCode = custCode.trim();
 
-    // -------------------------------------------------
-    // DETERMINAR PROYECTOS QUE REALMENTE SE PODRÁN VER
-    // -------------------------------------------------
     let allowedProjects = [...user.projects];
 
     if (projCode) {
@@ -218,9 +221,6 @@ export class TickService {
 
     const cleanedAllowed = allowedProjects.map(p => p.trim());
 
-    // ---------------------------------------------
-    // QUERY PRINCIPAL
-    // ---------------------------------------------
     const qb = this.tickRepository.manager
       .createQueryBuilder()
       .select([
@@ -271,14 +271,10 @@ export class TickService {
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
       .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
       .andWhere('b.delv_qty::numeric > 0')
-      // 🔥 Filtro OBLIGATORIO por proyectos del usuario
       .andWhere('TRIM(c.proj_code) IN (:...cleanedAllowed)', {
         cleanedAllowed,
       });
 
-    // ---------------------------------------------
-    // FILTROS OPCIONALES
-    // ---------------------------------------------
     if (docNumber?.trim()) {
       qb.andWhere('TRIM(a.tkt_code) ILIKE :docNumber', {
         docNumber: `%${docNumber.trim()}%`
@@ -293,9 +289,6 @@ export class TickService {
 
     const rows = await qb.getRawMany();
 
-    // ---------------------------------------------
-    // MAPEADO EXACTO PARA EL FRONT / EXCEL
-    // ---------------------------------------------
     const mapped = rows.map(tick => ({
       Fecha: new Date(tick.order_date).toLocaleDateString('es-CL'),
       "Guía": tick.tkt_code,

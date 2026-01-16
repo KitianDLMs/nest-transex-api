@@ -20,6 +20,7 @@ import { ImstModule } from './imst/imst.module';
 import { OrdlModule } from './ordl/ordl.module';
 import { OrdrModule } from './ordr/ordr.module';
 import { PrjpModule } from './prjp/prjp.module'
+import { ProductReportModule } from './prod-report/product-report.module';
 
 @Module({
   imports: [
@@ -81,7 +82,9 @@ import { PrjpModule } from './prjp/prjp.module'
 
     ImstModule,
 
-    SchlModule
+    SchlModule,
+
+    ProductReportModule,
   ],
 })
 export class AppModule {}

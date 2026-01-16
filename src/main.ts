@@ -4,7 +4,6 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
-import * as express from 'express';
 import { existsSync } from 'fs';
 
 async function bootstrap() {
@@ -16,7 +15,6 @@ async function bootstrap() {
 
   app.useGlobalPipes(
     new ValidationPipe({
-      // whitelist: true,
       forbidNonWhitelisted: false,
     })
   );

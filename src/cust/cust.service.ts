@@ -31,28 +31,21 @@ export class CustService {
     });
   }
 
-  async findOne(cust_code: string) {
-    const cust = await this.custRepository.findOne({
-      where: { cust_code: cust_code.trim() },
-      // relations: [
-      //   // 'projs',
-      //   // 'orders',        
-      //   // 'orders.tickets'
-      // ]
-    });
+    async findOne(cust_code: string) {
+      const cust = await this.custRepository.findOne({
+        where: { cust_code: cust_code.trim() },
+      });
+      if (!cust) {
+        throw new NotFoundException(`Cliente ${cust_code} no existe`);
+      }
 
-    if (!cust) {
-      throw new NotFoundException(`Cliente ${cust_code} no existe`);
+      return cust;
     }
 
-    return cust;
-  }
-
   async getOrdersByCustomer(cust_code: string): Promise<Ordr[]> {
-    // Asumiendo que la entidad Order tiene un campo cust_code
     return this.orderRepository.find({
       where: { cust_code },
-      order: { order_date: 'DESC' } // opcional: orden por fecha
+      order: { order_date: 'DESC' }
     });
   }
 
