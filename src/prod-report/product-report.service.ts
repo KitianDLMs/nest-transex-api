@@ -1,117 +1,182 @@
 // ---------------------- IMPORTS ----------------------
-import { Injectable, ForbiddenException } from '@nestjs/common'; // Decorador y excepción
-import { DataSource } from 'typeorm'; // Para usar DataSource
-import { ProductReportDto } from './dto/product-report-dto'; // Tu DTO (ajusta la ruta si es necesario)
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { ProductReportDto } from './dto/product-report-dto';
 
 // ---------------------- SERVICIO ----------------------
 @Injectable()
 export class ProductReportService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async getReport(filters: ProductReportDto, user: any) {
-    const { custCode, projCode, dateFrom, dateTo, search, page = 1, limit = 10 } = filters;
-    const offset = (page - 1) * limit;
+async getReport(filters: ProductReportDto, user: any) {
+  const { custCode, projCode, search, page = 1, limit = 10 } = filters;
 
-    if (!user.projects || user.projects.length === 0) {
-      throw new ForbiddenException('El usuario no tiene proyectos asignados');
+  if (!custCode) {
+    throw new BadRequestException('custCode es obligatorio');
+  }
+
+  if (!user.projects || user.projects.length === 0) {
+    throw new ForbiddenException('El usuario no tiene proyectos asignados');
+  }
+
+  const offset = (page - 1) * limit;
+
+  // ----------------------
+  // 1️⃣ Proyectos permitidos
+  // ----------------------
+  let allowedProjects = [...user.projects];
+
+  if (projCode) {
+    const requested = Array.isArray(projCode)
+      ? projCode.map(p => p.trim())
+      : [projCode.trim()];
+
+    allowedProjects = requested.filter(p => user.projects.includes(p));
+
+    if (allowedProjects.length === 0) {
+      return { page, limit, total: 0, totalPages: 0, data: [] };
+    }
+  }
+
+  // ----------------------
+  // 2️⃣ Query base filtrada por cliente, proyectos y productos válidos
+  // ----------------------
+  const baseQuery = this.dataSource
+    .createQueryBuilder()
+    .from('stg_nat_sap_cmds', 's')
+    .where(
+      `REGEXP_REPLACE(COALESCE(s.card_code, s.cust_code), '[^0-9]', '', 'g') = :custCode`,
+      { custCode }
+    )
+    .andWhere(`TRIM(s.id_proyecto) IN (:...allowedProjects)`, { allowedProjects })
+    .andWhere(`
+      TRIM(s.item_code) NOT ILIKE 'CAR-INCOMP'
+      AND (
+        TRIM(s.item_code) ILIKE 'BOM%'     -- servicios de bombeo
+        OR TRIM(s.item_code) ~ '^[0-9]'    -- productos que empiezan con número
+      )
+    `);
+
+  if (search) {
+    baseQuery.andWhere(`TRIM(s.item_code) ILIKE :search`, { search: `%${search}%` });
+  }
+
+  // ----------------------
+  // 3️⃣ Total productos únicos
+  // ----------------------
+  const totalResult = await baseQuery.clone()
+    .select('COUNT(DISTINCT TRIM(s.item_code))', 'total')
+    .getRawOne();
+
+  const total = Number(totalResult?.total ?? 0);
+  const totalPages = Math.ceil(total / limit);
+
+  if (total === 0) {
+    return { page, limit, total, totalPages, data: [] };
+  }
+
+  // ----------------------
+  // 4️⃣ Productos paginados
+  // ----------------------
+  const products = await baseQuery.clone()
+    .select('DISTINCT TRIM(s.item_code)', 'prodCode')
+    .orderBy('TRIM(s.item_code)', 'ASC')
+    .offset(offset)
+    .limit(limit)
+    .getRawMany();
+
+  const prodCodes = products.map(p => p.prodCode);
+
+  // ----------------------
+  // 5️⃣ Detalle por orden con nombre de producto
+  // ----------------------
+  const rows = await baseQuery.clone()
+    .select([
+      `TRIM(s.item_code) AS "prodCode"`,
+      `COALESCE(o.prod_descr, TRIM(s.item_code)) AS "productName"`,
+      `TRIM(s.doc_entry) AS "orderCode"`,
+      `COALESCE(NULLIF(REPLACE(s.cantidad_ov, ',', '.'), ''), '0')::numeric AS "respaldado"`,
+      `COALESCE(NULLIF(REPLACE(s.cantidad_ticket, ',', '.'), ''), '0')::numeric AS "utilizado"`,
+      `(
+        COALESCE(NULLIF(REPLACE(s.cantidad_ov, ',', '.'), ''), '0')::numeric
+        -
+        COALESCE(NULLIF(REPLACE(s.cantidad_ticket, ',', '.'), ''), '0')::numeric
+      ) AS "saldo"`,
+      `p.proj_name AS "projectName"`,
+    ])
+    .andWhere('TRIM(s.item_code) IN (:...prodCodes)', { prodCodes })
+    .andWhere(`
+      TRIM(s.item_code) NOT ILIKE 'CAR-INCOMP'
+      AND (
+        TRIM(s.item_code) ILIKE 'BOM%'
+        OR TRIM(s.item_code) ~ '^[0-9]'
+      )
+    `)
+    .leftJoin(
+      'ordl',
+      'o',
+      'TRIM(o.prod_code) = TRIM(s.item_code)'
+    )
+    .leftJoin(
+      'ordr',
+      'r',
+      `r.order_code = s.doc_entry 
+       AND REGEXP_REPLACE(r.cust_code, '[^0-9]', '', 'g') = :custCode
+       AND TRIM(r.proj_code) IN (:...allowedProjects)`,
+      { custCode, allowedProjects }
+    )
+    .leftJoin(
+      'proj',
+      'p',
+      'TRIM(p.proj_code) = TRIM(s.id_proyecto)'
+    )
+    .orderBy('TRIM(s.item_code)', 'ASC')
+    .addOrderBy('s.doc_entry', 'ASC')
+    .getRawMany();
+
+  // ----------------------
+  // 6️⃣ Armar estructura para frontend
+  // ----------------------
+  const map: Record<string, any> = {};
+
+  rows.forEach(r => {
+    if (!map[r.prodCode]) {
+      map[r.prodCode] = {
+        producto: r.productName,
+        codigo: r.prodCode,
+        totalRespaldado: 0,
+        totalUtilizado: 0,
+        saldo: 0,
+        projectName: r.projectName,
+        ordenes: [],
+      };
     }
 
-    let allowedProjects = [...user.projects];
-
-    if (projCode) {
-      const requestedProj = Array.isArray(projCode)
-        ? projCode.map(p => p.trim())
-        : [projCode.trim()];
-
-      allowedProjects = requestedProj.filter(p =>
-        user.projects.includes(p),
-      );
-
-      if (allowedProjects.length === 0) {
-        return { page, limit, total: 0, totalPages: 0, data: [] };
-      }
-    }
-
-    const baseQuery = this.dataSource.createQueryBuilder()
-      .from('ordl', 'd')
-      .innerJoin('ordr', 'c', 'TRIM(d.order_code) = TRIM(c.order_code)')
-      .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', { allowedProjects });
-
-    if (custCode) baseQuery.andWhere('TRIM(c.cust_code) = :custCode', { custCode });
-    if (dateFrom) baseQuery.andWhere('d.order_date >= :dateFrom', { dateFrom });
-    if (dateTo) {
-      const dateToEnd = new Date(dateTo);
-      dateToEnd.setDate(dateToEnd.getDate() + 1);
-      baseQuery.andWhere('d.order_date < :dateToEnd', { dateToEnd });
-    }
-    if (search) {
-      baseQuery.andWhere('(d.prod_descr ILIKE :search OR d.prod_code ILIKE :search)', { search: `%${search}%` });
-    }
-
-    const totalResult = await baseQuery.clone()
-      .select('COUNT(DISTINCT d.prod_code)', 'total')
-      .getRawOne();
-    const total = Number(totalResult.total ?? 0);
-    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-
-    if (total === 0) return { page, limit, total, totalPages, data: [] };
-
-    // 4️⃣ Obtener códigos de productos de la página
-    const productCodesRaw = await baseQuery.clone()
-      .select('DISTINCT d.prod_code', 'prodCode')
-      .orderBy('d.prod_code', 'ASC')
-      .offset(offset)
-      .limit(limit)
-      .getRawMany();
-
-    const prodCodesArray = productCodesRaw.map(p => p.prodCode);
-    if (prodCodesArray.length === 0) return { page, limit, total, totalPages, data: [] };
-
-    // 5️⃣ Obtener todos los registros de esos productos
-    const rawData = await baseQuery.clone()
-      .select([
-        `TRIM(d.prod_code) AS "prodCode"`,
-        `TRIM(d.prod_descr) AS "prodDescr"`,
-        `TRIM(c.order_code) AS "orderCode"`,
-        `COALESCE(NULLIF(d.order_qty, ''), '0')::numeric AS "cantidadRespaldo"`,
-        `COALESCE(NULLIF(d.delv_qty, ''), '0')::numeric AS "cantidadUtilizada"`,
-        `(COALESCE(NULLIF(d.order_qty, ''), '0')::numeric - COALESCE(NULLIF(d.delv_qty, ''), '0')::numeric) AS "saldo"`
-      ])
-      .where('d.prod_code IN (:...prodCodes)', { prodCodes: prodCodesArray })
-      .orderBy('d.prod_code', 'ASC')
-      .addOrderBy('c.order_code', 'ASC')
-      .getRawMany();
-
-    // 6️⃣ Agrupar y calcular totales
-    const dataMap: Record<string, any> = {};
-
-    rawData.forEach(row => {
-      const code = row.prodCode;
-      if (!dataMap[code]) {
-        dataMap[code] = {
-          prodCode: row.prodCode,
-          prodDescr: row.prodDescr,
-          totalRespaldo: 0,
-          totalUtilizada: 0,
-          saldo: 0,
-          orders: []
-        };
-      }
-
-      dataMap[code].orders.push({
-        orderCode: row.orderCode,
-        cantidadRespaldo: Number(row.cantidadRespaldo),
-        cantidadUtilizada: Number(row.cantidadUtilizada),
-        saldo: Number(row.saldo)
-      });
-
-      dataMap[code].totalRespaldo += Number(row.cantidadRespaldo);
-      dataMap[code].totalUtilizada += Number(row.cantidadUtilizada);
-      dataMap[code].saldo = dataMap[code].totalRespaldo - dataMap[code].totalUtilizada;
+    map[r.prodCode].ordenes.push({
+      ordenCompra: r.orderCode,
+      respaldado: Number(r.respaldado),
+      utilizado: Number(r.utilizado),
+      saldo: Number(r.saldo),
     });
 
-    const data = Object.values(dataMap);
+    map[r.prodCode].totalRespaldado += Number(r.respaldado);
+    map[r.prodCode].totalUtilizado += Number(r.utilizado);
+    map[r.prodCode].saldo =
+      map[r.prodCode].totalRespaldado -
+      map[r.prodCode].totalUtilizado;
+  });
 
-    return { page, limit, total, totalPages, data };
-  }
+  // ----------------------
+  // 7️⃣ Devolver resultado
+  // ----------------------
+  return {
+    page,
+    limit,
+    total,
+    totalPages,
+    data: Object.values(map),
+  };
+}
+
+
 }
