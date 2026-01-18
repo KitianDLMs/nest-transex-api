@@ -1,4 +1,4 @@
-import { IsArray, IsOptional, IsString } from "class-validator";
+import { IsArray, IsOptional, IsString, MinLength } from "class-validator";
 
 export class UpdateUserDto {
   fullName?: string;
@@ -9,4 +9,9 @@ export class UpdateUserDto {
   @IsArray()
   @IsString({ each: true })
   projects?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string;
 }

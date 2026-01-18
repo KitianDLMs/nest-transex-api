@@ -39,7 +39,7 @@ async getReport(filters: ProductReportDto, user: any) {
   }
 
   // ----------------------
-  // 2️⃣ Query base filtrada por cliente, proyectos y productos válidos
+  // 2️⃣ Query base
   // ----------------------
   const baseQuery = this.dataSource
     .createQueryBuilder()
@@ -52,13 +52,15 @@ async getReport(filters: ProductReportDto, user: any) {
     .andWhere(`
       TRIM(s.item_code) NOT ILIKE 'CAR-INCOMP'
       AND (
-        TRIM(s.item_code) ILIKE 'BOM%'     -- servicios de bombeo
-        OR TRIM(s.item_code) ~ '^[0-9]'    -- productos que empiezan con número
+        TRIM(s.item_code) ILIKE 'BOM%'
+        OR TRIM(s.item_code) ~ '^[0-9]'
       )
     `);
 
   if (search) {
-    baseQuery.andWhere(`TRIM(s.item_code) ILIKE :search`, { search: `%${search}%` });
+    baseQuery.andWhere(`TRIM(s.item_code) ILIKE :search`, {
+      search: `%${search}%`,
+    });
   }
 
   // ----------------------
@@ -88,7 +90,7 @@ async getReport(filters: ProductReportDto, user: any) {
   const prodCodes = products.map(p => p.prodCode);
 
   // ----------------------
-  // 5️⃣ Detalle por orden con nombre de producto
+  // 5️⃣ Detalle por orden
   // ----------------------
   const rows = await baseQuery.clone()
     .select([
@@ -105,41 +107,33 @@ async getReport(filters: ProductReportDto, user: any) {
       `p.proj_name AS "projectName"`,
     ])
     .andWhere('TRIM(s.item_code) IN (:...prodCodes)', { prodCodes })
-    .andWhere(`
-      TRIM(s.item_code) NOT ILIKE 'CAR-INCOMP'
-      AND (
-        TRIM(s.item_code) ILIKE 'BOM%'
-        OR TRIM(s.item_code) ~ '^[0-9]'
-      )
-    `)
-    .leftJoin(
-      'ordl',
-      'o',
-      'TRIM(o.prod_code) = TRIM(s.item_code)'
-    )
-    .leftJoin(
-      'ordr',
-      'r',
-      `r.order_code = s.doc_entry 
-       AND REGEXP_REPLACE(r.cust_code, '[^0-9]', '', 'g') = :custCode
-       AND TRIM(r.proj_code) IN (:...allowedProjects)`,
-      { custCode, allowedProjects }
-    )
-    .leftJoin(
-      'proj',
-      'p',
-      'TRIM(p.proj_code) = TRIM(s.id_proyecto)'
-    )
+    .leftJoin('ordl', 'o', 'TRIM(o.prod_code) = TRIM(s.item_code)')
+    .leftJoin('proj', 'p', 'TRIM(p.proj_code) = TRIM(s.id_proyecto)')
     .orderBy('TRIM(s.item_code)', 'ASC')
     .addOrderBy('s.doc_entry', 'ASC')
     .getRawMany();
 
   // ----------------------
-  // 6️⃣ Armar estructura para frontend
+  // 6️⃣ Armar estructura (SOLO OCs válidas)
   // ----------------------
   const map: Record<string, any> = {};
 
   rows.forEach(r => {
+    const respaldado = Number(r.respaldado);
+    const utilizado = Number(r.utilizado);
+    const saldo = Number(r.saldo);
+    const orderCode = r.orderCode?.trim();
+
+    // ❌ OC inválida
+    if (
+      !orderCode ||
+      respaldado <= 0 ||
+      saldo <= 0 ||
+      utilizado > respaldado
+    ) {
+      return;
+    }
+
     if (!map[r.prodCode]) {
       map[r.prodCode] = {
         producto: r.productName,
@@ -149,25 +143,37 @@ async getReport(filters: ProductReportDto, user: any) {
         saldo: 0,
         projectName: r.projectName,
         ordenes: [],
+        _ordenKeys: new Set<string>(),
       };
     }
 
+    const orderKey = `${orderCode}|${respaldado}|${utilizado}|${saldo}`;
+
+    if (map[r.prodCode]._ordenKeys.has(orderKey)) {
+      return;
+    }
+
+    map[r.prodCode]._ordenKeys.add(orderKey);
+
     map[r.prodCode].ordenes.push({
-      ordenCompra: r.orderCode,
-      respaldado: Number(r.respaldado),
-      utilizado: Number(r.utilizado),
-      saldo: Number(r.saldo),
+      ordenCompra: orderCode,
+      respaldado,
+      utilizado,
+      saldo,
     });
 
-    map[r.prodCode].totalRespaldado += Number(r.respaldado);
-    map[r.prodCode].totalUtilizado += Number(r.utilizado);
+    map[r.prodCode].totalRespaldado += respaldado;
+    map[r.prodCode].totalUtilizado += utilizado;
     map[r.prodCode].saldo =
       map[r.prodCode].totalRespaldado -
       map[r.prodCode].totalUtilizado;
   });
 
+  // eliminar helper interno
+  Object.values(map).forEach((p: any) => delete p._ordenKeys);
+
   // ----------------------
-  // 7️⃣ Devolver resultado
+  // 7️⃣ Resultado
   // ----------------------
   return {
     page,

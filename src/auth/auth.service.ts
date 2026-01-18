@@ -12,7 +12,6 @@ import { UsersPaginatedResponse } from './interfaces/users-paginated-response.in
 import { Proj } from 'src/proj/entities/proj.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-
 @Injectable()
 export class AuthService {
 
@@ -35,14 +34,12 @@ export class AuthService {
 
     let projs: any[] = [];
 
-    if (user.cust_code && Array.isArray(user.projects)) {
-      // Traer todos los proyectos del cliente
+    if (user.cust_code && Array.isArray(user.projects)) {  
       const allProjects = await this.projRepository.find({
         where: { cust_code: user.cust_code },
         select: ['proj_code', 'proj_name'],
       });
-
-      // Filtrar los que tiene el usuario
+      
       projs = allProjects
         .filter(p => user.projects.includes(p.proj_code))
         .map(p => ({ projcode: p.proj_code, projname: p.proj_name }));
@@ -50,7 +47,7 @@ export class AuthService {
 
     return {
       ...user,
-      projs, // Angular va a usar esto
+      projs,
     };
   }
 
@@ -65,28 +62,28 @@ export class AuthService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // -------- SOLUCIÓN DEFINITIVA ----------
     let projectCodes: string[] = [];
 
     if (Array.isArray(dto.projects)) {
-      projectCodes = dto.projects.map((p: any) => {
-        if (typeof p === 'string') {
-          return p.trim();   // OK si ya viene como string
-        }
-        if (p && typeof p === 'object' && p.projcode) {
-          return p.projcode.trim(); // OK si viene como objeto
-        }
-
-        return ''; // para evitar undefined
-      }).filter(code => code !== '');
+      projectCodes = dto.projects
+        .map((p: any) => {
+          if (typeof p === 'string') return p.trim();
+          if (p && typeof p === 'object' && p.projcode) return p.projcode.trim();
+          return '';
+        })
+        .filter(code => code !== '');
     }
-    // ---------------------------------------
 
     user.projects = projectCodes;
 
     if (dto.fullName) user.fullName = dto.fullName;
     if (dto.email) user.email = dto.email.toLowerCase();
     if (dto.roles) user.roles = dto.roles;
+
+    if (dto.password && dto.password.trim().length > 0) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(dto.password, salt);
+    }
 
     return await this.userRepository.save(user);
   }
@@ -95,8 +92,6 @@ export class AuthService {
   try {
 
     const { password, roles, cust_code, cust_codes, ...rest } = createUserDto;
-
-    // --- VALIDACIONES POR ROL -----
 
     if (roles.includes('user')) {
       if (!cust_code || cust_code.trim().length === 0) {
@@ -109,10 +104,6 @@ export class AuthService {
         throw new BadRequestException('cust_codes is required for role super-user');
       }
     }
-
-    // admin no tiene validaciones adicionales
-
-    // --- CREACIÓN DEL USUARIO -----
 
     const user = this.userRepository.create({
       ...rest,
