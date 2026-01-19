@@ -9,7 +9,7 @@ export class ProductReportController {
   constructor(private readonly productReportService: ProductReportService) {}
 
   @Get()
-  async getReport(@Query() filters: ProductReportDto, @Req() req) {            
+  async getReport(@Query() filters: ProductReportDto, @Req() req) {                
     return this.productReportService.getReport(filters, req.user);
   }
 }
