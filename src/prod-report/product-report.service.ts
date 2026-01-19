@@ -25,42 +25,37 @@ async getReport(filters: ProductReportDto, user: any) {
   // 1️⃣ Proyectos permitidos
   // ----------------------
   let allowedProjects = [...user.projects];
-
   if (projCode) {
     const requested = Array.isArray(projCode)
       ? projCode.map(p => p.trim())
       : [projCode.trim()];
 
     allowedProjects = requested.filter(p => user.projects.includes(p));
-
     if (allowedProjects.length === 0) {
       return { page, limit, total: 0, totalPages: 0, data: [] };
     }
   }
 
   // ----------------------
-  // 2️⃣ Query base
+  // 2️⃣ Query base con join a ORDR
   // ----------------------
   const baseQuery = this.dataSource
     .createQueryBuilder()
     .from('stg_nat_sap_cmds', 's')
-    .where(
-      `REGEXP_REPLACE(COALESCE(s.card_code, s.cust_code), '[^0-9]', '', 'g') = :custCode`,
-      { custCode }
-    )
+    .innerJoin('ordr', 'o', `
+      TRIM(o.order_code) = TRIM(s.doc_entry)
+      AND (o.remove_rsn_code IS NULL OR o.remove_rsn_code IN ('AUT','LiM',''))
+    `)
+    .leftJoin('proj', 'p', 'TRIM(p.proj_code) = TRIM(s.id_proyecto)')
+    .where(`REGEXP_REPLACE(COALESCE(s.card_code, s.cust_code), '[^0-9]', '', 'g') = :custCode`, { custCode })
     .andWhere(`TRIM(s.id_proyecto) IN (:...allowedProjects)`, { allowedProjects })
     .andWhere(`
       TRIM(s.item_code) NOT ILIKE 'CAR-INCOMP'
-      AND (
-        TRIM(s.item_code) ILIKE 'BOM%'
-        OR TRIM(s.item_code) ~ '^[0-9]'
-      )
+      AND (TRIM(s.item_code) ILIKE 'BOM%' OR TRIM(s.item_code) ~ '^[0-9]')
     `);
 
   if (search) {
-    baseQuery.andWhere(`TRIM(s.item_code) ILIKE :search`, {
-      search: `%${search}%`,
-    });
+    baseQuery.andWhere(`TRIM(s.item_code) ILIKE :search`, { search: `%${search}%` });
   }
 
   // ----------------------
@@ -69,13 +64,9 @@ async getReport(filters: ProductReportDto, user: any) {
   const totalResult = await baseQuery.clone()
     .select('COUNT(DISTINCT TRIM(s.item_code))', 'total')
     .getRawOne();
-
   const total = Number(totalResult?.total ?? 0);
   const totalPages = Math.ceil(total / limit);
-
-  if (total === 0) {
-    return { page, limit, total, totalPages, data: [] };
-  }
+  if (total === 0) return { page, limit, total, totalPages, data: [] };
 
   // ----------------------
   // 4️⃣ Productos paginados
@@ -86,7 +77,6 @@ async getReport(filters: ProductReportDto, user: any) {
     .offset(offset)
     .limit(limit)
     .getRawMany();
-
   const prodCodes = products.map(p => p.prodCode);
 
   // ----------------------
@@ -95,26 +85,20 @@ async getReport(filters: ProductReportDto, user: any) {
   const rows = await baseQuery.clone()
     .select([
       `TRIM(s.item_code) AS "prodCode"`,
-      `COALESCE(o.prod_descr, TRIM(s.item_code)) AS "productName"`,
+      `COALESCE(s.prod_descr, TRIM(s.item_code)) AS "productName"`,
       `TRIM(s.doc_entry) AS "orderCode"`,
       `COALESCE(NULLIF(REPLACE(s.cantidad_ov, ',', '.'), ''), '0')::numeric AS "respaldado"`,
       `COALESCE(NULLIF(REPLACE(s.cantidad_ticket, ',', '.'), ''), '0')::numeric AS "utilizado"`,
-      `(
-        COALESCE(NULLIF(REPLACE(s.cantidad_ov, ',', '.'), ''), '0')::numeric
-        -
-        COALESCE(NULLIF(REPLACE(s.cantidad_ticket, ',', '.'), ''), '0')::numeric
-      ) AS "saldo"`,
+      `(COALESCE(NULLIF(REPLACE(s.cantidad_ov, ',', '.'), ''), '0')::numeric - COALESCE(NULLIF(REPLACE(s.cantidad_ticket, ',', '.'), ''), '0')::numeric) AS "saldo"`,
       `p.proj_name AS "projectName"`,
     ])
     .andWhere('TRIM(s.item_code) IN (:...prodCodes)', { prodCodes })
-    .leftJoin('ordl', 'o', 'TRIM(o.prod_code) = TRIM(s.item_code)')
-    .leftJoin('proj', 'p', 'TRIM(p.proj_code) = TRIM(s.id_proyecto)')
     .orderBy('TRIM(s.item_code)', 'ASC')
     .addOrderBy('s.doc_entry', 'ASC')
     .getRawMany();
 
   // ----------------------
-  // 6️⃣ Armar estructura (SOLO OCs válidas)
+  // 6️⃣ Armar estructura con solo OCs válidas
   // ----------------------
   const map: Record<string, any> = {};
 
@@ -124,15 +108,8 @@ async getReport(filters: ProductReportDto, user: any) {
     const saldo = Number(r.saldo);
     const orderCode = r.orderCode?.trim();
 
-    // ❌ OC inválida
-    if (
-      !orderCode ||
-      respaldado <= 0 ||
-      saldo <= 0 ||
-      utilizado > respaldado
-    ) {
-      return;
-    }
+    // ❌ descartar filas inválidas
+    if (!orderCode || respaldado <= 0 || saldo <= 0 || utilizado > respaldado) return;
 
     if (!map[r.prodCode]) {
       map[r.prodCode] = {
@@ -148,32 +125,20 @@ async getReport(filters: ProductReportDto, user: any) {
     }
 
     const orderKey = `${orderCode}|${respaldado}|${utilizado}|${saldo}`;
-
-    if (map[r.prodCode]._ordenKeys.has(orderKey)) {
-      return;
-    }
-
+    if (map[r.prodCode]._ordenKeys.has(orderKey)) return;
     map[r.prodCode]._ordenKeys.add(orderKey);
 
-    map[r.prodCode].ordenes.push({
-      ordenCompra: orderCode,
-      respaldado,
-      utilizado,
-      saldo,
-    });
-
+    map[r.prodCode].ordenes.push({ ordenCompra: orderCode, respaldado, utilizado, saldo });
     map[r.prodCode].totalRespaldado += respaldado;
     map[r.prodCode].totalUtilizado += utilizado;
-    map[r.prodCode].saldo =
-      map[r.prodCode].totalRespaldado -
-      map[r.prodCode].totalUtilizado;
+    map[r.prodCode].saldo = map[r.prodCode].totalRespaldado - map[r.prodCode].totalUtilizado;
   });
 
   // eliminar helper interno
-  Object.values(map).forEach((p: any) => delete p._ordenKeys);
+  Object.values(map).forEach(p => delete p._ordenKeys);
 
   // ----------------------
-  // 7️⃣ Resultado
+  // 7️⃣ Resultado final
   // ----------------------
   return {
     page,
@@ -183,6 +148,5 @@ async getReport(filters: ProductReportDto, user: any) {
     data: Object.values(map),
   };
 }
-
 
 }
