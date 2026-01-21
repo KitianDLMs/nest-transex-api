@@ -56,33 +56,46 @@ export class AuthService {
   }
 
   async updateUser(userId: string, dto: UpdateUserDto) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({
+      where: { id: userId }
+    });
 
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    let projectCodes: string[] = [];
-
+    // ================= PROYECTOS =================
     if (Array.isArray(dto.projects)) {
-      projectCodes = dto.projects
-        .map((p: any) => {
-          if (typeof p === 'string') return p.trim();
-          if (p && typeof p === 'object' && p.projcode) return p.projcode.trim();
-          return '';
-        })
-        .filter(code => code !== '');
+      user.projects = dto.projects
+        .map((p: any) =>
+          typeof p === 'string' ? p.trim() : p?.projcode?.trim()
+        )
+        .filter(Boolean);
     }
 
-    user.projects = projectCodes;
-
+    // ================= DATOS BÁSICOS =================
     if (dto.fullName) user.fullName = dto.fullName;
     if (dto.email) user.email = dto.email.toLowerCase();
     if (dto.roles) user.roles = dto.roles;
 
-    if (dto.password && dto.password.trim().length > 0) {
+    if (dto.password?.trim()) {
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(dto.password, salt);
+    }
+
+    // ================= CLIENTES =================
+    const role = dto.roles?.[0];
+
+    if (role === 'user') {
+      user.cust_code = dto.cust_code ?? null;
+      user.cust_codes = []; // 🔥 limpiar
+    }
+
+    if (role === 'admin' || role === 'super-user') {
+      user.cust_codes = Array.isArray(dto.cust_codes)
+        ? dto.cust_codes
+        : [];
+      user.cust_code = null; // 🔥 limpiar
     }
 
     return await this.userRepository.save(user);
