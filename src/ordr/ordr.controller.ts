@@ -27,7 +27,7 @@ export class OrdrController {
   ) {
     if (!projCode || !custCode) {
       throw new Error('proj_code y cust_code son requeridos');
-    }
+    } 
 
     return this.ordrService.getPedidosPorProyectoExterno(
       projCode,
