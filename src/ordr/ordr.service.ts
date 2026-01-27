@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Ordr } from './entities/ordr.entity';
 import { CreateOrdrDto } from './dto/create-ordr.dto';
 import { UpdateOrdrDto } from './dto/update-ordr.dto';
+import axios from 'axios';
 
 @Injectable()
 export class OrdrService {
@@ -25,6 +26,66 @@ export class OrdrService {
       `,
       [custCode.trim()]
     );
+  }
+
+  async getPedidosPorProyectoExterno(
+    projCode: string,
+    custCode: string,
+  ) {
+    const url =
+      'http://190.153.216.170/ApiSamtech/api/pedido/pedido_proyecto';
+
+    try {
+      const response = await axios.get(url, {
+        params: {
+          proj_code: projCode.trim(),
+          cust_code: custCode.trim(),
+        },
+        headers: {
+          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6IkNNT1JBTEVTMURVaGRkaW5VUEhXWjk2eiIsIm5iZiI6MTc2OTQ4NjA3MiwiZXhwIjoxNzY5NDg3ODcyLCJpYXQiOjE3Njk0ODYwNzIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6NjM0MjIiLCJhdWQiOiJodHRwOi8vbG9jYWxob3N0OjYzNDIyIn0.EQ0n0AfLpuwcM-Knr8amGgTbgK_PfyJAzkPyJdDHlos`,
+        },
+        timeout: 15000,
+      });
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error API Samtech:',
+        error?.response?.data || error.message,
+      );
+      throw new Error('Error al consultar pedidos externos');
+    }
+  }
+
+  async   getPedidosPorCliente(custCode: string) {
+    if (!custCode) {
+      throw new Error('cust_code es requerido');
+    }
+
+    const url =
+      'http://190.153.216.170/ApiSamtech/api/pedido/pedido_cliente';
+
+    try {
+      const response = await axios.post(
+        url,
+        {
+          cust_code: custCode.trim(),
+        },
+        {
+          headers: {
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6IkNNT1JBTEVTMURVaGRkaW5VUEhXWjk2eiIsIm5iZiI6MTc2OTQ4NjA3MiwiZXhwIjoxNzY5NDg3ODcyLCJpYXQiOjE3Njk0ODYwNzIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6NjM0MjIiLCJhdWQiOiJodHRwOi8vbG9jYWxob3N0OjYzNDIyIn0.EQ0n0AfLpuwcM-Knr8amGgTbgK_PfyJAzkPyJdDHlos`,
+          },
+          timeout: 15000,
+        },
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error API Samtech:',
+        error?.response?.data || error.message,
+      );
+      throw new Error('Error al consultar pedidos por cliente');
+    }
   }
 
   create(createOrdrDto: CreateOrdrDto) {

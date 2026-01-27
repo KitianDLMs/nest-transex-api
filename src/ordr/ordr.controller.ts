@@ -11,6 +11,30 @@ export class OrdrController {
     private readonly projService: ProjService,
   ) {}
 
+  @Get('external/by-customer')
+  getPedidosPorCliente(@Query('cust_code') custCode: string) {
+    if (!custCode) {
+      throw new Error('cust_code es requerido');
+    }
+
+    return this.ordrService.getPedidosPorCliente(custCode);
+  }
+
+  @Get('external/by-project')
+  getPedidosExternosPorProyecto(
+    @Query('proj_code') projCode: string,
+    @Query('cust_code') custCode: string,
+  ) {
+    if (!projCode || !custCode) {
+      throw new Error('proj_code y cust_code son requeridos');
+    }
+
+    return this.ordrService.getPedidosPorProyectoExterno(
+      projCode,
+      custCode,
+    );
+  }
+
   @Post()
   create(@Body() createOrdrDto: CreateOrdrDto) {
     return this.ordrService.create(createOrdrDto);
@@ -34,7 +58,7 @@ export class OrdrController {
       Number(page),
       Number(limit),
     );
-  }
+  }  
 
   // @Get(':cust_code')
   // findByCust(@Param('cust_code') cust_code: string) {

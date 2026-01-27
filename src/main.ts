@@ -22,7 +22,7 @@ async function bootstrap() {
   console.log(existsSync(join(process.cwd(), 'uploads', 'archivo.pdf')));
 
   const config = new DocumentBuilder()
-    .setTitle('Transex RESTFul API')
+    .setTitle('Transex RESTFull API')
     .setDescription('Transex API endpoints')
     .setVersion('1.0')
     .build();
