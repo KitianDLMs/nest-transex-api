@@ -9,12 +9,18 @@ import axios from 'axios';
 @Injectable()
 export class OrdrService {
 
+  private readonly authUrl = 'http://190.153.216.170/ApiSamtech/api/login/aauthenticate';
+  private readonly authBody = {
+    Username: 'CMORALES',
+    Password: '1DUhddinUPHWZ96z',
+  };
+
   constructor(
     @InjectRepository(Ordr)
     private readonly ordrRepository: Repository<Ordr>,
   ) {}
 
-    async findProjectsByCustomer(custCode: string) {
+  async findProjectsByCustomer(custCode: string) {
     return this.ordrRepository.query(
       `
       SELECT DISTINCT
@@ -28,21 +34,46 @@ export class OrdrService {
     );
   }
 
+  private async getJwt(): Promise<string> {
+    try {
+      const response = await axios.post(
+        'http://190.153.216.170/ApiSamtech/api/login/authenticate',
+        this.authBody,
+        { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+      );
+
+      let token = response.data;
+      if (typeof token === 'string') {
+        token = token.replace(/^"|"$/g, '');
+      }
+
+      if (!token) {
+        console.error('Respuesta completa de la API:', response.data);
+        throw new Error('No se recibió token en la respuesta');
+      }
+      return token;
+    } catch (error) {
+      console.error('Error generando JWT:', error?.response?.data || error.message);
+      throw new Error('No se pudo generar el token JWT');
+    }
+  }
+
   async getPedidosPorProyectoExterno(
     projCode: string,
     custCode: string,
-  ) {
+  ) {    
     const url =
       'http://190.153.216.170/ApiSamtech/api/pedido/pedido_proyecto';
 
     try {
+      const token = await this.getJwt();
       const response = await axios.get(url, {
         params: {
           proj_code: projCode.trim(),
           cust_code: custCode.trim(),
         },
         headers: {
-          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6IkNNT1JBTEVTMURVaGRkaW5VUEhXWjk2eiIsIm5iZiI6MTc2OTQ4NjA3MiwiZXhwIjoxNzY5NDg3ODcyLCJpYXQiOjE3Njk0ODYwNzIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6NjM0MjIiLCJhdWQiOiJodHRwOi8vbG9jYWxob3N0OjYzNDIyIn0.EQ0n0AfLpuwcM-Knr8amGgTbgK_PfyJAzkPyJdDHlos`,
+          Authorization: `Bearer ${token}`,
         },
         timeout: 15000,
       });
@@ -65,6 +96,7 @@ export class OrdrService {
       'http://190.153.216.170/ApiSamtech/api/pedido/pedido_cliente';
 
     try {
+      const token = await this.getJwt();
       const response = await axios.post(
         url,
         {
@@ -72,7 +104,7 @@ export class OrdrService {
         },
         {
           headers: {
-            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6IkNNT1JBTEVTMURVaGRkaW5VUEhXWjk2eiIsIm5iZiI6MTc2OTQ4NjA3MiwiZXhwIjoxNzY5NDg3ODcyLCJpYXQiOjE3Njk0ODYwNzIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6NjM0MjIiLCJhdWQiOiJodHRwOi8vbG9jYWxob3N0OjYzNDIyIn0.EQ0n0AfLpuwcM-Knr8amGgTbgK_PfyJAzkPyJdDHlos`,
+            Authorization: `Bearer ${token}`,
           },
           timeout: 15000,
         },
