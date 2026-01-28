@@ -11,6 +11,17 @@ export class OrdrController {
     private readonly projService: ProjService,
   ) {}
 
+  @Get('external/programa')
+  getProgramaPorPedido(
+    @Query('order_code') order_code: string,
+    @Query('order_date') order_date: string,
+  ) {
+    if (!order_code || !order_date) {
+      throw new Error('order_code y order_date son requeridos');
+    }
+    return this.ordrService.getProgramaPorPedido(order_code, order_date);
+  }
+
   @Get('external/by-customer')
   getPedidosPorCliente(@Query('cust_code') custCode: string) {
     if (!custCode) {

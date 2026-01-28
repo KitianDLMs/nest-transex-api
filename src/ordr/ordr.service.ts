@@ -58,6 +58,36 @@ export class OrdrService {
     }
   }
 
+  async getProgramaPorPedido(order_code: string, order_date: string) {
+    if (!order_code || !order_date) {
+      throw new Error('order_code y order_date son requeridos');
+    }
+
+    const url = 'http://190.153.216.170/ApiSamtech/api/programa/por_pedido';
+
+    try {
+      const token = await this.getJwt();
+      const response = await axios.get(url, {
+        params: {
+          order_code: order_code.trim(),
+          order_date: order_date.trim(),
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        timeout: 15000,
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error(
+        'Error API Samtech (programa por pedido):',
+        error?.response?.data || error.message,
+      );
+      throw new Error('Error al consultar programa por pedido');
+    }
+  }
+
   async getPedidosPorProyectoExterno(
     projCode: string,
     custCode: string,
