@@ -39,7 +39,7 @@ export class OrdrService {
       const response = await axios.post(
         'http://190.153.216.170/ApiSamtech/api/login/authenticate',
         this.authBody,
-        { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+        { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
       );
 
       let token = response.data;
@@ -75,7 +75,7 @@ export class OrdrService {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        timeout: 15000,
+        timeout: 60000,
       });
 
       return response.data;
@@ -105,7 +105,7 @@ export class OrdrService {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        timeout: 15000,
+        timeout: 60000,
       });
       return response.data;
     } catch (error) {
@@ -136,7 +136,7 @@ export class OrdrService {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-          timeout: 15000,
+          timeout: 60000,
         },
       );
 
