@@ -50,4 +50,6 @@ export class CreateUserDto {
   @ArrayNotEmpty()
   @IsOptional()
   roles?: string[];  
+
+  rut?: string;
 }

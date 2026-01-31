@@ -27,7 +27,7 @@ export class AuthService {
   async getUserById(id: string) {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: ['id', 'fullName', 'email', 'roles', 'cust_code', 'cust_codes', 'isActive', 'projects'],
+      select: ['id', 'fullName', 'email', 'rut', 'roles', 'cust_code', 'cust_codes', 'isActive', 'projects'],
     });
 
     if (!user) throw new NotFoundException(`User not found`);
@@ -77,6 +77,7 @@ export class AuthService {
     if (dto.fullName) user.fullName = dto.fullName;
     if (dto.email) user.email = dto.email.toLowerCase();
     if (dto.roles) user.roles = dto.roles;
+    if (dto.rut !== undefined) user.rut = dto.rut;
 
     if (dto.password?.trim()) {
       const salt = await bcrypt.genSalt(10);
@@ -145,31 +146,44 @@ export class AuthService {
 }
 
 
-  async login( loginUserDto: LoginUserDto ) {
+  async login(loginUserDto: LoginUserDto) {
+    const { rut, password } = loginUserDto;
 
-    const { password, email } = loginUserDto;
+    const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+
+    const body = cleanRut.slice(0, -1);
+    const dv = cleanRut.slice(-1);
+    const rutWithDash = `${body}-${dv}`;
+
 
     const user = await this.userRepository.findOne({
-      where: { email },
-      select: { email: true, password: true, id: true, fullName: true, isActive: true, roles: true}
+      where: { rut: rutWithDash },
+      select: {
+        rut: true,
+        password: true,
+        id: true,
+        fullName: true,
+        roles: true,
+        email: true,
+      },
     });
 
-    if ( !user ) 
-      throw new UnauthorizedException('Credentials are not valid (email)');
-      
-    if ( !bcrypt.compareSync( password, user.password ) )
-      throw new UnauthorizedException('Credentials are not valid (password)');
+    if (!user)
+      throw new UnauthorizedException('Credenciales inválidas (rut)');
+
+    if (!bcrypt.compareSync(password, user.password))
+      throw new UnauthorizedException('Credenciales inválidas (password)');
 
     delete user.password;
 
     return {
-      user: user,
-      token: this.getJwtToken({ 
+      user,
+      token: this.getJwtToken({
         id: user.id,
         email: user.email,
         roles: user.roles,
-        fullName: user.fullName
-      })
+        fullName: user.fullName,
+      }),
     };
   }
 
