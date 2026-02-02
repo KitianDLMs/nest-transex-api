@@ -53,6 +53,11 @@ export class AuthService {
 
   async getAllUsers() {
     return await this.userRepository.find();
+  }  
+
+  private normalizeRut(rut: string): string {
+    const clean = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+    return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
   }
 
   async updateUser(userId: string, dto: UpdateUserDto) {
@@ -63,8 +68,7 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
-
-    // ================= PROYECTOS =================
+  
     if (Array.isArray(dto.projects)) {
       user.projects = dto.projects
         .map((p: any) =>
@@ -72,78 +76,78 @@ export class AuthService {
         )
         .filter(Boolean);
     }
-
-    // ================= DATOS BÁSICOS =================
+  
     if (dto.fullName) user.fullName = dto.fullName;
     if (dto.email) user.email = dto.email.toLowerCase();
     if (dto.roles) user.roles = dto.roles;
-    if (dto.rut !== undefined) user.rut = dto.rut;
+    if (dto.rut !== undefined) {
+      user.rut = this.normalizeRut(dto.rut);
+    }
 
     if (dto.password?.trim()) {
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(dto.password, salt);
     }
-
-    // ================= CLIENTES =================
+    
     const role = dto.roles?.[0];
 
     if (role === 'user') {
       user.cust_code = dto.cust_code ?? null;
-      user.cust_codes = []; // 🔥 limpiar
+      user.cust_codes = [];
     }
 
     if (role === 'admin' || role === 'super-user') {
       user.cust_codes = Array.isArray(dto.cust_codes)
         ? dto.cust_codes
         : [];
-      user.cust_code = null; // 🔥 limpiar
+      user.cust_code = null;
     }
-
     return await this.userRepository.save(user);
   }
 
   async create(createUserDto: CreateUserDto) {
-  try {
+    try {
 
-    const { password, roles, cust_code, cust_codes, ...rest } = createUserDto;
+      const { password, roles, cust_code, cust_codes, ...rest } = createUserDto;
 
-    if (roles.includes('user')) {
-      if (!cust_code || cust_code.trim().length === 0) {
-        throw new BadRequestException('cust_code is required for role user');
+      if (roles.includes('user')) {
+        if (!cust_code || cust_code.trim().length === 0) {
+          throw new BadRequestException('cust_code is required for role user');
+        }
       }
-    }
 
-    if (roles.includes('super-user')) {
-      if (!cust_codes || !Array.isArray(cust_codes) || cust_codes.length === 0) {
-        throw new BadRequestException('cust_codes is required for role super-user');
+      if (roles.includes('super-user')) {
+        if (!cust_codes || !Array.isArray(cust_codes) || cust_codes.length === 0) {
+          throw new BadRequestException('cust_codes is required for role super-user');
+        }
       }
+
+      const user = this.userRepository.create({
+        ...rest,
+        rut: this.normalizeRut(rest.rut),
+        roles,
+        cust_code: roles.includes('user') ? cust_code : null,
+        cust_codes: roles.includes('super-user') ? cust_codes : null,
+        password: bcrypt.hashSync(password, 10),
+      });
+
+      await this.userRepository.save(user);
+      delete user.password;
+
+      return {
+        user,
+        token: this.getJwtToken({
+          id: user.id,
+          email: user.email,
+          roles: user.roles,
+          fullName: user.fullName,
+        }),
+      };
+
+    } catch (error) {
+      this.handleDBErrors(error);
     }
-
-    const user = this.userRepository.create({
-      ...rest,
-      roles,
-      cust_code: roles.includes('user') ? cust_code : null,
-      cust_codes: roles.includes('super-user') ? cust_codes : null,
-      password: bcrypt.hashSync(password, 10),
-    });
-
-    await this.userRepository.save(user);
-    delete user.password;
-
-    return {
-      user,
-      token: this.getJwtToken({
-        id: user.id,
-        email: user.email,
-        roles: user.roles,
-        fullName: user.fullName,
-      }),
-    };
-
-  } catch (error) {
-    this.handleDBErrors(error);
   }
-}
 
 
   async login(loginUserDto: LoginUserDto) {

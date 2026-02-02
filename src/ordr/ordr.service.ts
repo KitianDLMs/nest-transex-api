@@ -9,7 +9,6 @@ import axios from 'axios';
 @Injectable()
 export class OrdrService {
 
-  private readonly authUrl = 'http://190.153.216.170/ApiSamtech/api/login/aauthenticate';
   private readonly authBody = {
     Username: 'CMORALES',
     Password: '1DUhddinUPHWZ96z',
