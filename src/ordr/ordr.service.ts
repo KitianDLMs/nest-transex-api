@@ -117,6 +117,7 @@ export class OrdrService {
 
     try {
       const token = await this.getJwt();
+
       const response = await axios.get(url, {
         params: {
           proj_code: projCode.trim(),
@@ -128,31 +129,63 @@ export class OrdrService {
         timeout: 60000,
       });
 
-      const pedidos = response.data;      
+      const pedidos = response.data;
+
       for (const p of pedidos) {
-      try {
-        const programa = await this.getProgramaPorPedido(
-          p.order_code,
-          p.order_date.toISOString().split('T')[0]
-        );
+        // 🔹 Normalizar fecha
+        const fechaRaw =
+          p.order_date ??
+          p.order_Date ??
+          p.orderDate;
 
-        const horas = programa
-          .map(pr => pr.on_job_time || pr.orig_on_job_time)
-          .filter(Boolean)
-          .sort();
+        if (!fechaRaw) {
+          p.start_time = null;
+          p.start_times = [];
+          p.order_datetime = null;
+          continue;
+        }
 
-        const horaInicio = horas[0] || '00:00';
+        const fechaISO =
+          fechaRaw instanceof Date
+            ? fechaRaw.toISOString().split('T')[0]
+            : fechaRaw.split('T')[0];
 
-        p.order_datetime = `${p.order_date.toISOString().split('T')[0]}T${horaInicio}:00`;
-        p.start_time = horaInicio !== '00:00' ? horaInicio : null;
-      } catch (e) {
-      
-        const fecha = p.order_date instanceof Date ? p.order_date.toISOString().split('T')[0] : p.order_date;
-        p.order_datetime = `${fecha}T00:00:00`;
-        p.start_time = null;
+        try {
+          // 🔹 Obtener programa
+          const programa = await this.getProgramaPorPedido(
+            p.order_code,
+            fechaISO
+          );
+
+          // 🔹 Extraer TODAS las horas posibles
+          const startTimes = programa
+            .map(pr =>
+              pr.on_job_time ||
+              pr.orig_on_job_time ||
+              pr.start_time ||
+              pr.hora_inicio ||
+              pr.hora ||
+              null
+            )
+            .filter(h => typeof h === 'string' && h.includes(':'))
+            .sort();
+          // 🔹 Asignar resultados
+          p.start_times = startTimes;           // 👈 TODAS
+          p.start_time = startTimes[0] || null; // 👈 la más temprana
+
+          p.order_datetime = p.start_time
+            ? `${fechaISO}T${p.start_time}:00`
+            : `${fechaISO}T00:00:00`;
+
+        } catch (err) {
+          p.start_times = [];
+          p.start_time = null;
+          p.order_datetime = `${fechaISO}T00:00:00`;
+        }
       }
-    }
+
       return pedidos;
+
     } catch (error) {
       console.error(
         'Error API Samtech:',
