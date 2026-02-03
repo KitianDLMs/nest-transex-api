@@ -248,6 +248,6 @@ export class Ordr {
   ticks: Tick[];
 
   @ManyToOne(() => User, (user) => user.ordrs, { nullable: true })
-  @JoinColumn({ name: 'id' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }

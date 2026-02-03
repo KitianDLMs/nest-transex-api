@@ -57,6 +57,28 @@ export class OrdrService {
     }
   }
 
+  async getAvancePedido(order_code: string, order_date: string) {
+    const programa = await this.getProgramaPorPedido(order_code, order_date);
+
+    let ejecutado = 0;
+
+    programa.forEach(p => {
+      const estado = (p.estado || '').trim().toUpperCase();
+
+      if (      
+        estado === 'TERMINADO' ||
+        estado === 'CERRADO'
+      ) {
+        ejecutado += Number(p.load_size) || 0;
+      }
+    });
+
+    return {
+      order_code,
+      ejecutado,
+    };
+  }
+
   async getProgramaPorPedido(order_code: string, order_date: string) {
     if (!order_code || !order_date) {
       throw new Error('order_code y order_date son requeridos');
@@ -90,9 +112,8 @@ export class OrdrService {
   async getPedidosPorProyectoExterno(
     projCode: string,
     custCode: string,
-  ) {    
-    const url =
-      'http://190.153.216.170/ApiSamtech/api/pedido/pedido_proyecto';
+  ) {
+    const url = 'http://190.153.216.170/ApiSamtech/api/pedido/pedido_proyecto';
 
     try {
       const token = await this.getJwt();
@@ -106,7 +127,32 @@ export class OrdrService {
         },
         timeout: 60000,
       });
-      return response.data;
+
+      const pedidos = response.data;      
+      for (const p of pedidos) {
+      try {
+        const programa = await this.getProgramaPorPedido(
+          p.order_code,
+          p.order_date.toISOString().split('T')[0]
+        );
+
+        const horas = programa
+          .map(pr => pr.on_job_time || pr.orig_on_job_time)
+          .filter(Boolean)
+          .sort();
+
+        const horaInicio = horas[0] || '00:00';
+
+        p.order_datetime = `${p.order_date.toISOString().split('T')[0]}T${horaInicio}:00`;
+        p.start_time = horaInicio !== '00:00' ? horaInicio : null;
+      } catch (e) {
+      
+        const fecha = p.order_date instanceof Date ? p.order_date.toISOString().split('T')[0] : p.order_date;
+        p.order_datetime = `${fecha}T00:00:00`;
+        p.start_time = null;
+      }
+    }
+      return pedidos;
     } catch (error) {
       console.error(
         'Error API Samtech:',

@@ -11,6 +11,21 @@ export class OrdrController {
     private readonly projService: ProjService,
   ) {}
 
+  @Get('all-by-customer')
+  getAllOrdersByCustomer(@Query('cust_code') custCode: string) {
+    if (!custCode) throw new Error('cust_code es requerido');
+    // Trae todos los pedidos locales, sin filtrar por fecha
+    return this.ordrService.findByCust(custCode.trim());
+  }
+
+  @Get('external/avance-pedido')
+  getAvance(
+    @Query('order_code') orderCode: string,
+    @Query('order_date') orderDate: string
+  ) {
+    return this.ordrService.getAvancePedido(orderCode, orderDate);
+  }
+
   @Get('external/programa')
   getProgramaPorPedido(
     @Query('order_code') order_code: string,
