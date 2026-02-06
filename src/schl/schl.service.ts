@@ -17,18 +17,20 @@ export class SchlService {
     return this.schlRepo.save(entity);
   }
 
-  async findAll(
-    order_date?: string,
-    order_code?: string,
-  ) {
+  async findAll(order_date?: string, order_code?: string) {
     const qb = this.schlRepo
       .createQueryBuilder('schl')
-      .orderBy('schl.order_date', 'DESC')
-      .addOrderBy('schl.order_code', 'ASC')
-      .addOrderBy('schl.order_intrnl_line_num', 'ASC');
+      .where('schl.tkt_code IS NOT NULL')
+      .andWhere("schl.tkt_code <> ''")
+      .orderBy('schl.on_job_time', 'ASC');
 
-    if (order_date) qb.andWhere('schl.order_date = :order_date', { order_date });
-    if (order_code) qb.andWhere('schl.order_code = :order_code', { order_code });
+    if (order_date) {
+      qb.andWhere('schl.order_date = :order_date', { order_date });
+    }
+
+    if (order_code) {
+      qb.andWhere('schl.order_code = :order_code', { order_code });
+    }
 
     return qb.getMany();
   }

@@ -4,7 +4,7 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 
-@Entity('SCHL')
+@Entity('schl_staging')
 export class Schl {
 
   // ----------------------------------
