@@ -31,16 +31,22 @@ export class CustService {
     });
   }
 
-    async findOne(cust_code: string) {
-      const cust = await this.custRepository.findOne({
-        where: { cust_code: cust_code.trim() },
-      });
-      if (!cust) {
-        throw new NotFoundException(`Cliente ${cust_code} no existe`);
-      }
+  async findOne(cust_code: string) {
+    const cust = await this.custRepository
+      .createQueryBuilder('cust')
+      .where(
+        `REPLACE(UPPER(TRIM(cust.cust_code)), '-', '') 
+        = REPLACE(UPPER(TRIM(:code)), '-', '')`,
+        { code: cust_code }
+      )
+      .getOne();
 
-      return cust;
+    if (!cust) {
+      throw new NotFoundException(`Cliente ${cust_code} no existe`);
     }
+
+    return cust;
+  }
 
   async getOrdersByCustomer(cust_code: string): Promise<Ordr[]> {
     return this.orderRepository.find({
