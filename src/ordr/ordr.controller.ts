@@ -61,6 +61,21 @@ export class OrdrController {
     );
   }
 
+  @Get('external/futuros')
+  getPedidosFuturosExternosPorProyecto(
+    @Query('proj_code') projCode: string,
+    @Query('cust_code') custCode: string,
+  ) {
+    if (!projCode || !custCode) {
+      throw new Error('proj_code y cust_code son requeridos');
+    } 
+
+    return this.ordrService.getPedidosFuturosPorProyectoExterno(
+      projCode,
+      custCode,
+    );
+  }
+
   @Post()
   create(@Body() createOrdrDto: CreateOrdrDto) {
     return this.ordrService.create(createOrdrDto);

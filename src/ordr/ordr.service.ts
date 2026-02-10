@@ -111,7 +111,6 @@ export class OrdrService {
 
   async getTicketsPorPedido(order_code: string, order_date: string) {
     const url = 'http://190.153.216.170/ApiSamtech/api/tick/por_pedido';
-
     try {
       const token = await this.getJwt();
 
@@ -139,7 +138,6 @@ export class OrdrService {
 
   async getPedidosPorProyectoExterno(projCode: string, custCode: string) {
     const url = 'http://190.153.216.170/ApiSamtech/api/pedido/pedido_proyecto';
-
     try {
       const token = await this.getJwt();
 
@@ -147,6 +145,120 @@ export class OrdrService {
         params: {
           proj_code: projCode.trim(),
           cust_code: custCode.trim(),
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        timeout: 60000,
+      });
+
+      const pedidos = response.data;
+
+      for (const p of pedidos) {
+        // -------------------------------
+        // 1️⃣ Normalizar fecha
+        // -------------------------------
+        const fechaRaw = p.order_date ?? p.order_Date ?? p.orderDate;
+
+        if (!fechaRaw) {
+          p.start_time = null;
+          p.start_times = [];
+          p.order_datetime = null;
+          p.tkt_code = null;
+          p.tkt_codes = [];
+          continue;
+        }
+
+        const fechaISO =
+          fechaRaw instanceof Date
+            ? fechaRaw.toISOString().split('T')[0]
+            : fechaRaw.split('T')[0];
+
+        try {
+          // -------------------------------
+          // 2️⃣ Obtener programa
+          // -------------------------------
+          const programa = await this.getProgramaPorPedido(
+            p.order_code,
+            fechaISO
+          );
+
+          // -------------------------------
+          // 3️⃣ Extraer horas reales
+          // -------------------------------
+          const startTimes = programa
+            .map(pr =>
+              pr.on_job_time ||
+              pr.orig_on_job_time ||
+              pr.start_time ||
+              pr.hora_inicio ||
+              pr.hora ||
+              null
+            )
+            .filter(h => typeof h === 'string' && h.includes(':'))
+            .sort((a, b) => {
+              const [ha, ma] = a.split(':').map(Number);
+              const [hb, mb] = b.split(':').map(Number);
+              return ha * 60 + ma - (hb * 60 + mb);
+            });
+
+          p.start_times = startTimes ?? [];
+
+          // -------------------------------
+          // 4️⃣ NO pisar start_time
+          // -------------------------------
+          if (p.start_time) {
+            p.start_time = p.start_time;
+          } else if (p.start_times.length) {
+            p.start_time = `${fechaISO}T${p.start_times[0]}:00`;
+          } else {
+            p.start_time = null;
+          }
+
+          // -------------------------------
+          // 5️⃣ Construir datetime final
+          // -------------------------------
+          p.order_datetime = p.start_time
+            ? p.start_time
+            : `${fechaISO}T00:00:00`;
+
+          // -------------------------------
+          // 6️⃣ JOIN lógico con TICK
+          // -------------------------------
+          const tickets = await this.getTicketsPorPedido(p.order_code, p.order_date);
+
+          p.tkt_codes = tickets.map(t => t.tkt_code);
+          p.tkt_code = p.tkt_codes.length ? p.tkt_codes[0] : null;
+
+        } catch (err) {
+          p.start_times = [];
+          p.start_time = null;
+          p.order_datetime = `${fechaISO}T00:00:00`;
+          p.tkt_code = null;
+          p.tkt_codes = [];
+        }
+      }
+
+      return pedidos;
+
+    } catch (error) {
+      console.error(
+        'Error API Samtech:',
+        error?.response?.data || error.message
+      );
+      throw new Error('Error al consultar pedidos externos');
+    }
+  }
+
+  async getPedidosFuturosPorProyectoExterno(projCode: string, custCode: string) {
+    const url = 'http://190.153.216.170/ApiSamtech/api/pedido/futuro';                 
+    try {
+      const token = await this.getJwt();
+
+      const response = await axios.get(url, {
+        params: {
+          proy: projCode.trim(),
+          cust: custCode.trim(),
         },
         headers: {
           Authorization: `Bearer ${token}`,
