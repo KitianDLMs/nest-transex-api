@@ -36,7 +36,7 @@ export class OrdrService {
   private async getJwt(): Promise<string> {
     try {
       const response = await axios.post(
-        'http://190.153.216.170/ApiSamtech/api/login/authenticate',
+        'http://200.27.177.162/ApiSamtech/api/login/authenticate',
         this.authBody,
         { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
       );
@@ -84,7 +84,7 @@ export class OrdrService {
       throw new Error('order_code y order_date son requeridos');
     }
 
-    const url = 'http://190.153.216.170/ApiSamtech/api/programa/por_pedido';
+    const url = 'http://200.27.177.162/ApiSamtech/api/programa/por_pedido';
 
     try {
       const token = await this.getJwt();
@@ -110,7 +110,7 @@ export class OrdrService {
   }
 
   async getTicketsPorPedido(order_code: string, order_date: string) {
-    const url = 'http://190.153.216.170/ApiSamtech/api/tick/por_pedido';
+    const url = 'http://200.27.177.162/ApiSamtech/api/tick/por_pedido';
     try {
       const token = await this.getJwt();
 
@@ -137,7 +137,7 @@ export class OrdrService {
   }
 
   async getPedidosPorProyectoExterno(projCode: string, custCode: string) {
-    const url = 'http://190.153.216.170/ApiSamtech/api/pedido/pedido_proyecto';
+    const url = 'http://200.27.177.162/ApiSamtech/api/pedido/pedido_proyecto';
     try {
       const token = await this.getJwt();
 
@@ -225,10 +225,10 @@ export class OrdrService {
           // -------------------------------
           // 6️⃣ JOIN lógico con TICK
           // -------------------------------
-          const tickets = await this.getTicketsPorPedido(p.order_code, p.order_date);
+          // const tickets = await this.getTicketsPorPedido(p.order_code, p.order_date);
 
-          p.tkt_codes = tickets.map(t => t.tkt_code);
-          p.tkt_code = p.tkt_codes.length ? p.tkt_codes[0] : null;
+          // p.tkt_codes = tickets.map(t => t.tkt_code);
+          // p.tkt_code = p.tkt_codes.length ? p.tkt_codes[0] : null;
 
         } catch (err) {
           p.start_times = [];
@@ -251,7 +251,7 @@ export class OrdrService {
   }
 
   async getPedidosFuturosPorProyectoExterno(projCode: string, custCode: string) {
-    const url = 'http://190.153.216.170/ApiSamtech/api/pedido/futuro';                 
+    const url = 'http://200.27.177.162/ApiSamtech/api/pedido/futuro';                 
     try {
       const token = await this.getJwt();
 
@@ -339,10 +339,10 @@ export class OrdrService {
           // -------------------------------
           // 6️⃣ JOIN lógico con TICK
           // -------------------------------
-          const tickets = await this.getTicketsPorPedido(p.order_code, p.order_date);
+          // const tickets = await this.getTicketsPorPedido(p.order_code, p.order_date);
 
-          p.tkt_codes = tickets.map(t => t.tkt_code);
-          p.tkt_code = p.tkt_codes.length ? p.tkt_codes[0] : null;
+          // p.tkt_codes = tickets.map(t => t.tkt_code);
+          // p.tkt_code = p.tkt_codes.length ? p.tkt_codes[0] : null;
 
         } catch (err) {
           p.start_times = [];
@@ -370,7 +370,7 @@ export class OrdrService {
     }
 
     const url =
-      'http://190.153.216.170/ApiSamtech/api/pedido/pedido_cliente';
+      'http://200.27.177.162/ApiSamtech/api/pedido/pedido_cliente';
 
     try {
       const token = await this.getJwt();
