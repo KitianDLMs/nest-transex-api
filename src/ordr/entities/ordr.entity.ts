@@ -4,7 +4,7 @@ import { Ordl } from 'src/ordl/entities/ordl.entity';
 import { Tick } from 'src/tick/entities/tick.entity';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 
-@Entity('ordr')
+@Entity('ordl')
 export class Ordr {  
 
   @PrimaryColumn({ type: 'timestamp' })
