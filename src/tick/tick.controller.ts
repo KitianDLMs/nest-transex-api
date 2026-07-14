@@ -13,11 +13,12 @@ import { TickFilterDto } from './dto/tick-filter.dto';
 import { DownloadZipDto } from './dto/download-zip.dto';
 import { tmpdir } from 'os';
 import { AuthGuard } from '@nestjs/passport';
+import { GoogleDriveService } from '../google-drive/google-drive.service';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('tick')
 export class TickController {
-  constructor(private readonly tickService: TickService) {}
+  constructor(private readonly tickService: TickService, private readonly googleDriveService: GoogleDriveService) {}
 
   @Get('search')
   async search(@Query() filters: TickFilterDto, @Req() req) {
@@ -27,56 +28,69 @@ export class TickController {
   @Post('download-zip')
   async downloadZip(
     @Body() body: DownloadZipDto,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
-    const basePath = join(process.cwd(), 'uploads');
-    const tktCodes = body.tktCodes?.map(c => c?.trim()).filter(c => c);
-    
+
+    const tktCodes = body.tktCodes
+      ?.map(c => c.trim())
+      .filter(c => c);
+
     if (!tktCodes || tktCodes.length === 0) {
-      return res.status(400).json({ message: 'No hay tickets', missing: [] });
-    }
-
-    const existing: string[] = [];
-    const missing: string[] = [];
-
+      return res.status(400).json({
+        message: 'No hay tickets',
+        missing: [],
+      });
+    }    
+    const existing: { id: string; name: string }[] = [];
+    const missing: string[] = [];    
     for (const code of tktCodes) {
-      const filePath = join(basePath, `${code}.pdf`);
-      if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
-        existing.push(code);
+
+      const file = await this.googleDriveService.findFileByTicket(code);
+
+      if (file) {
+        existing.push(file);
       } else {
         missing.push(code);
       }
     }
-
     if (existing.length === 0) {
-      return res.status(404).json({ message: 'No se encontró ningún PDF válido', missing });
-    }
-
-    // Si hay tickets existentes, generamos el ZIP
-    const zipName = `documentos_${Date.now()}.zip`;
-    const tmpPath = join(tmpdir(), zipName);
-
-    const output = fs.createWriteStream(tmpPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    archive.pipe(output);
-
-    existing.forEach(code => {
-      const filePath = join(basePath, `${code}.pdf`);
-      archive.file(filePath, { name: `${code}.pdf` });
-    });
-
-    archive.finalize();
-
-    output.on('close', () => {
-      // Si hay tickets faltantes, devolvemos info junto con el ZIP
-      if (missing.length > 0) {
-        res.setHeader('X-Missing-Files', missing.join(','));
-      }
-      res.download(tmpPath, zipName, (err) => {
-        if (err) console.error(err);
-        fs.unlinkSync(tmpPath);
+      return res.status(404).json({
+        message: 'No se encontró ningún PDF',
+        missing,
       });
+    }
+    const zipName = `documentos_${Date.now()}.zip`;
+    const archive = archiver('zip', {
+      zlib: { level: 9 },
     });
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${zipName}"`,
+    );
+
+    res.setHeader(
+      'Content-Type',
+      'application/zip',
+    );
+
+    if (missing.length > 0) {
+      res.setHeader(
+        'X-Missing-Files',
+        missing.join(','),
+      );
+    }
+    archive.pipe(res);
+    for (const file of existing) {      
+      const stream = await this.googleDriveService.downloadFile(file.id);
+      archive.append(stream, {
+        name: file.name,
+      });
+    }
+    archive.on('error', (err) => {
+      console.error(err);
+    });
+    await archive.finalize();    
   }
 
   // @Post('with-file')
@@ -134,19 +148,23 @@ export class TickController {
   @Get('download/:tkt_code')
   async downloadFile(
     @Param('tkt_code') tkt_code: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
-    const filePath = join(
-      process.cwd(),
-      'uploads',
-      `${tkt_code}.pdf`
-    );
 
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException(`Archivo ${tkt_code}.pdf no encontrado`);
+    const file = await this.googleDriveService.findFileByTicket(tkt_code);
+
+    if (!file) {
+      throw new NotFoundException('Guía no encontrada');
     }
 
-    return res.download(filePath, `${tkt_code}.pdf`);
+    const stream = await this.googleDriveService.downloadFile(file.id);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${file.name}"`,
+    });
+
+    stream.pipe(res);
   }
 
   @Get('export/excel')

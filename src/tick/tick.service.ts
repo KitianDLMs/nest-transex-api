@@ -106,7 +106,8 @@ export class TickService {
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
-      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      // .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      // .andWhere("(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = '')")
       .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', {
         allowedProjects,
       });
@@ -129,8 +130,7 @@ export class TickService {
       'ASC',
     );
 
-    if (limit > 0) qb.offset((page - 1) * limit).limit(limit);
-
+    if (limit > 0) qb.offset((page - 1) * limit).limit(limit);    
     const data = await qb.getRawMany();
 
     const countQb = this.tickRepository.manager
@@ -164,7 +164,7 @@ export class TickService {
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
-      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      // .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
       .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', {
         allowedProjects,
       });
@@ -202,24 +202,23 @@ export class TickService {
 
     const cleanCustCode = custCode.trim();
 
-    let allowedProjects = [...user.projects];
+    const userProjectsClean = user.projects.map(p => p.trim());
+
+    let allowedProjects = [...userProjectsClean];
 
     if (projCode) {
       const requestedProj = Array.isArray(projCode)
         ? projCode.map(p => p.trim())
         : [projCode.trim()];
 
-      // Intersección entre usuario y filtro
       allowedProjects = requestedProj.filter(p =>
-        user.projects.includes(p),
+        userProjectsClean.includes(p),
       );
 
       if (allowedProjects.length === 0) {
         return [];
       }
     }
-
-    const cleanedAllowed = allowedProjects.map(p => p.trim());
 
     const qb = this.tickRepository.manager
       .createQueryBuilder()
@@ -231,48 +230,49 @@ export class TickService {
         'TRIM(c.cust_code) AS cust_code',
         'TRIM(c.proj_code) AS proj_code',
 
-        'COALESCE(TRIM(e.proj_name), TRIM(c.proj_code)) AS proj_name',
+        'COALESCE(MAX(TRIM(e.proj_name)), \'Sin proyecto\') AS proj_name',
 
-        'b.delv_qty AS m3',
+        'MAX(b.delv_qty) AS m3',
 
-        'd.price AS unit_price',
-        'TRIM(d.prod_descr) AS prod_descr',
-        'TRIM(d.prod_code) AS prod_code'
+        'MAX(d.price) AS unit_price',
+        'MAX(TRIM(d.prod_descr)) AS prod_descr',
+        'MAX(TRIM(d.prod_code)) AS prod_code'
       ])
       .from('tick', 'a')
       .innerJoin(
+        'tktl',
+        'b',
+        `TRIM(a.tkt_code) = TRIM(b.tkt_code)
+        AND TRIM(a.order_code) = TRIM(b.order_code)
+        AND DATE(a.order_date) = DATE(b.order_date)`
+      )
+      .innerJoin(
         'ordr',
         'c',
-        'TRIM(a.order_code) = TRIM(c.order_code) AND DATE(a.order_date) = DATE(c.order_date)'
+        `TRIM(a.order_code) = TRIM(c.order_code)
+        AND DATE(a.order_date) = DATE(c.order_date)`
       )
       .leftJoin(
         'proj',
         'e',
-        'TRIM(c.proj_code) = TRIM(e.proj_code) AND TRIM(c.cust_code) = TRIM(e.cust_code)'
-      )
-      .leftJoin(
-        'tktl',
-        'b',
-        `TRIM(a.tkt_code) = TRIM(b.tkt_code)
-          AND TRIM(a.order_code) = TRIM(b.order_code)
-          AND DATE(a.order_date) = DATE(b.order_date)`
+        `TRIM(c.proj_code) = TRIM(e.proj_code)
+        AND TRIM(c.cust_code) = TRIM(e.cust_code)`
       )
       .leftJoin(
         'ordl',
         'd',
         `TRIM(c.order_code) = TRIM(d.order_code)
-          AND DATE(c.order_date) = DATE(d.order_date)
-          AND b.order_intrnl_line_num = d.order_intrnl_line_num
-          AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
+        AND DATE(c.order_date) = DATE(d.order_date)
+        AND b.order_intrnl_line_num = d.order_intrnl_line_num
+        AND (d.prod_descr NOT ILIKE :bombeo OR d.prod_descr IS NULL)`,
         { bombeo: '%bombeo%' }
       )
       .where('TRIM(c.cust_code) = :custCode', { custCode: cleanCustCode })
       .andWhere('a.tkt_code IS NOT NULL AND a.tkt_code <> \'\'')
       .andWhere('(d.prod_descr IS NOT NULL OR d.price IS NOT NULL)')
-      .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
-      .andWhere('b.delv_qty::numeric > 0')
-      .andWhere('TRIM(c.proj_code) IN (:...cleanedAllowed)', {
-        cleanedAllowed,
+      // .andWhere('(a.remove_rsn_code IS NULL OR TRIM(a.remove_rsn_code) = \'\')')
+      .andWhere('TRIM(c.proj_code) IN (:...allowedProjects)', {
+        allowedProjects,
       });
 
     if (docNumber?.trim()) {
@@ -281,15 +281,27 @@ export class TickService {
       });
     }
 
-    if (dateFrom) qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
-    if (dateTo) qb.andWhere('a.order_date <= :dateTo', { dateTo });
+    if (dateFrom) {
+      qb.andWhere('a.order_date >= :dateFrom', { dateFrom });
+    }
+
+    if (dateTo) {
+      qb.andWhere('a.order_date <= :dateTo', { dateTo });
+    }
+
+    qb.groupBy(`
+      a.tkt_code,
+      a.order_code,
+      a.order_date,
+      c.cust_code,
+      c.proj_code
+    `);
 
     qb.orderBy('a.order_date', 'ASC')
-      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC');
-
+      .addOrderBy('CAST(TRIM(a.tkt_code) AS BIGINT)', 'ASC');    
     const rows = await qb.getRawMany();
 
-    const mapped = rows.map(tick => ({
+    return rows.map(tick => ({
       Fecha: new Date(tick.order_date).toLocaleDateString('es-CL'),
       "Guía": tick.tkt_code,
       "Pedido": tick.order_code,
@@ -300,8 +312,6 @@ export class TickService {
       "Cantidad": tick.m3,
       "Precio Unitario": tick.unit_price
     }));
-
-    return mapped;
   }
 
  async searchAllCodes(filters: TickFilterDto, user: any) {

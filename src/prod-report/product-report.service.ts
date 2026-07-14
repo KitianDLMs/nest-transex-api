@@ -29,29 +29,34 @@ export class ProductReportService {
 
     const offset = (page - 1) * limit;
 
-    const ordlSubquery = this.dataSource
+    const prjpSubquery = this.dataSource
       .createQueryBuilder()
       .select([
-        `TRIM(o.prod_code) AS prod_code`,
-        `MAX(o.prod_descr) AS prod_descr`,
+        `TRIM(p.prod_code) AS prod_code`,
+        `MAX(p.prod_descr) AS prod_descr`,
       ])
-      .from('ordl', 'o')
+      .from('prjp', 'p')
       .where(`
-        o.remove_rsn_code IS NULL
-        OR o.remove_rsn_code = ''
-        OR o.remove_rsn_code IN ('AUT','LIM')
+        TRIM(p.cust_code) = :custCode
       `)
-      .groupBy(`TRIM(o.prod_code)`);
+      .andWhere(`
+        TRIM(p.proj_code) IN (:...allowedProjects)
+      `)
+      .groupBy(`
+        TRIM(p.prod_code)
+      `);
 
     const subQuery = this.dataSource
       .createQueryBuilder()
       .from('stg_nat_sap_cmds', 's')
-      .innerJoin(
-        `(${ordlSubquery.getQuery()})`,
+      .leftJoin(
+        `(${prjpSubquery.getQuery()})`,
         'op',
-        `op.prod_code = TRIM(s.item_code)`,
+        `
+        TRIM(op.prod_code) = TRIM(s.item_code)
+        `,
       )
-      .setParameters(ordlSubquery.getParameters())
+      .setParameters(prjpSubquery.getParameters())
       .where(
         `REGEXP_REPLACE(COALESCE(s.card_code, s.cust_code), '[^0-9]', '', 'g') = :custCode`,
         { custCode },
@@ -69,8 +74,12 @@ export class ProductReportService {
       `)
       .select([
         `TRIM(s.item_code) AS codigo`,
-        `op.prod_descr AS producto`,
-
+        `
+        COALESCE(
+          MAX(op.prod_descr),
+          TRIM(s.item_code)
+        ) AS producto
+        `,
         `SUM(
           COALESCE(NULLIF(REPLACE(s.cantidad_ov, ',', '.'), ''), '0')::numeric
         ) AS respaldado`,
@@ -91,7 +100,10 @@ export class ProductReportService {
 
         `MAX(s.numatcard) AS ordenCompra`,
       ])
-      .groupBy(`TRIM(s.item_code), op.prod_descr`)
+      // .groupBy(`TRIM(s.item_code), op.prod_descr`)
+      .groupBy(`
+        TRIM(s.item_code)
+      `)
       .orderBy(`TRIM(s.item_code)`, 'ASC');
 
     const totalResult = await this.dataSource
@@ -116,7 +128,6 @@ export class ProductReportService {
       .offset(offset)
       .limit(limit)
       .getRawMany();
-
     return {
       page,
       limit,

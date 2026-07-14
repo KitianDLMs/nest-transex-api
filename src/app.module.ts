@@ -21,6 +21,7 @@ import { OrdlModule } from './ordl/ordl.module';
 import { OrdrModule } from './ordr/ordr.module';
 import { PrjpModule } from './prjp/prjp.module'
 import { ProductReportModule } from './prod-report/product-report.module';
+import { GoogleDriveModule } from './google-drive/google-drive.module';
 
 @Module({
   imports: [
@@ -83,6 +84,8 @@ import { ProductReportModule } from './prod-report/product-report.module';
     ImstModule,
 
     SchlModule,
+
+    GoogleDriveModule,
 
     ProductReportModule,
   ],

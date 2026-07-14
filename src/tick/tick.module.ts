@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tick } from './entities/tick.entity';
 import { TickService } from './tick.service';
 import { TickController } from './tick.controller';
+import { GoogleDriveModule } from 'src/google-drive/google-drive.module';
 // import { TickDoc } from './entities/tick-doc.entity';
 
 
@@ -10,7 +11,8 @@ import { TickController } from './tick.controller';
   imports: [
     TypeOrmModule.forFeature([Tick, 
       // TickDoc
-    ])
+    ]),
+    GoogleDriveModule
   ],
   controllers: [TickController],
   providers: [TickService],
